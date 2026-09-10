@@ -79,7 +79,9 @@ export default function Inscripcion() {
   if (!tournament) {
     return (
       <div className="empty" style={{ marginTop: '80px' }}>
-        <h2 style={{ fontSize: '24px', marginBottom: '8px', color: '#e7ecf5' }}>Torneo no encontrado</h2>
+        <h2 style={{ fontSize: '24px', marginBottom: '8px', color: '#e7ecf5' }}>
+          Torneo no encontrado
+        </h2>
         <Link to="/" className="btn btn-primary">Volver al inicio</Link>
       </div>
     );
