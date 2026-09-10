@@ -1,8 +1,30 @@
-import { BrowserRouter, Routes, Route, Link } from 'react-router-dom';
+import { useEffect, useState } from 'react';
+import { BrowserRouter, Routes, Route, Link, useNavigate } from 'react-router-dom';
+import { supabase } from './lib/supabase';
 import Home from './pages/Home';
 import Login from './pages/Login';
 
 function App() {
+  const [user, setUser] = useState(null);
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    supabase.auth.getSession().then(({ data: { session } }) => {
+      setUser(session?.user ?? null);
+      setLoading(false);
+    });
+
+    const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, session) => {
+      setUser(session?.user ?? null);
+    });
+
+    return () => subscription.unsubscribe();
+  }, []);
+
+  async function handleLogout() {
+    await supabase.auth.signOut();
+  }
+
   return (
     <BrowserRouter>
       <div className="app">
@@ -14,7 +36,26 @@ function App() {
             </Link>
             <nav className="nav-links">
               <Link to="/">Torneos</Link>
-              <Link to="/login">Acceso organizadores</Link>
+              {!loading && !user && <Link to="/login">Acceso organizadores</Link>}
+              {!loading && user && (
+                <>
+                  <span style={{ color: '#8a94a8', fontSize: '13px' }}>
+                    {user.email}
+                  </span>
+                  <button
+                    onClick={handleLogout}
+                    style={{
+                      fontSize: '14px',
+                      color: '#8a94a8',
+                      padding: '8px 14px',
+                      borderRadius: '9px',
+                      cursor: 'pointer',
+                    }}
+                  >
+                    Cerrar sesión
+                  </button>
+                </>
+              )}
             </nav>
           </div>
         </header>
