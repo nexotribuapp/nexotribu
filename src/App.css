@@ -52,7 +52,7 @@ main { min-height: calc(100vh - 66px - 100px); }
 }
 
 /* ============================================================
-   BOTONES REUTILIZABLES
+   BOTONES
    ============================================================ */
 .btn {
   display: inline-flex; align-items: center; justify-content: center; gap: 8px;
@@ -76,14 +76,17 @@ main { min-height: calc(100vh - 66px - 100px); }
   background: rgba(255, 61, 113, 0.12); color: #ff3d71;
   border-color: rgba(255, 61, 113, 0.35);
 }
+.btn-danger:hover:not(:disabled) { background: rgba(255, 61, 113, 0.2); }
 .btn-success {
   background: rgba(34, 214, 127, 0.12); color: #22d67f;
   border-color: rgba(34, 214, 127, 0.35);
 }
+.btn-success:hover:not(:disabled) { background: rgba(34, 214, 127, 0.2); }
 .btn-block { width: 100%; }
+.btn-sm { padding: 7px 13px; font-size: 13px; border-radius: 9px; }
 
 /* ============================================================
-   PANEL / CARDS
+   PANEL
    ============================================================ */
 .panel {
   background: #161d2e;
@@ -118,7 +121,7 @@ main { min-height: calc(100vh - 66px - 100px); }
 .required { color: #ff3d71; }
 
 /* ============================================================
-   UTIL
+   PILLS / BADGES
    ============================================================ */
 .pill {
   display: inline-flex; align-items: center; gap: 5px;
@@ -132,12 +135,65 @@ main { min-height: calc(100vh - 66px - 100px); }
 .pill.red { color: #ff3d71; border-color: rgba(255, 61, 113, 0.35); background: rgba(255, 61, 113, 0.08); }
 .pill.blue { color: #00e0ff; border-color: rgba(0, 224, 255, 0.35); background: rgba(0, 224, 255, 0.08); }
 
+/* ============================================================
+   PLAN PRO (dorado)
+   ============================================================ */
+.pro-card {
+  position: relative;
+  border-radius: 16px;
+  padding: 2px;
+  background: linear-gradient(120deg, #ffd166, #ffb02e, #ffd166, #ff8c00, #ffd166);
+  background-size: 300% 300%;
+  animation: shimmer 4s linear infinite;
+  margin-bottom: 24px;
+}
+.pro-card-inner {
+  background: linear-gradient(135deg, #1a1408 0%, #2a1f0a 50%, #1a1408 100%);
+  border-radius: 14px;
+  padding: 22px;
+}
+@keyframes shimmer {
+  0% { background-position: 0% 50%; }
+  100% { background-position: 300% 50%; }
+}
+.pro-badge {
+  display: inline-flex; align-items: center; gap: 6px;
+  padding: 6px 12px;
+  border-radius: 20px;
+  background: linear-gradient(135deg, #ffd166, #ffb02e);
+  color: #1a1408;
+  font-size: 11px;
+  font-weight: 900;
+  letter-spacing: 1px;
+  text-transform: uppercase;
+  box-shadow: 0 4px 16px rgba(255, 176, 46, 0.4);
+}
+.pro-badge::before {
+  content: '';
+  width: 6px; height: 6px;
+  border-radius: 50%;
+  background: #1a1408;
+  animation: pulse 1.5s infinite;
+}
+@keyframes pulse {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0.3; }
+}
+.pro-text-gradient {
+  background: linear-gradient(135deg, #ffd166, #ffb02e);
+  -webkit-background-clip: text;
+  background-clip: text;
+  -webkit-text-fill-color: transparent;
+}
+
+/* ============================================================
+   UTIL
+   ============================================================ */
 .empty {
   text-align: center; padding: 60px 20px;
   color: #8a94a8;
   border: 1px dashed #232c44; border-radius: 14px;
 }
-
 .spinner {
   width: 20px; height: 20px;
   border: 2.5px solid #232c44;

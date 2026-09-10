@@ -5,6 +5,7 @@ import { supabase } from '../lib/supabase';
 export default function Panel({ user, organizer }) {
   const [tournaments, setTournaments] = useState([]);
   const [loading, setLoading] = useState(true);
+  const [filter, setFilter] = useState('all');
 
   useEffect(() => {
     async function load() {
@@ -23,32 +24,70 @@ export default function Panel({ user, organizer }) {
 
   const initials = organizer?.name?.charAt(0)?.toUpperCase() || '?';
 
+  // Contadores
+  const totalParticipants = tournaments.reduce((acc, t) => acc, 0);
+  const openCount = tournaments.filter((t) => t.status === 'open').length;
+  const finishedCount = tournaments.filter((t) => t.status === 'finished').length;
+
+  // Filtro
+  const filtered = tournaments.filter((t) => {
+    if (filter === 'all') return true;
+    if (filter === 'open') return t.status === 'open';
+    if (filter === 'in_progress') return t.status === 'in_progress';
+    if (filter === 'finished') return t.status === 'finished';
+    return true;
+  });
+
   return (
     <div style={{ padding: '40px 0' }}>
-      <div style={{
-        display: 'flex', alignItems: 'center', gap: '18px',
-        background: 'linear-gradient(120deg, #161d2e, #1c2438)',
-        border: '1px solid #232c44', borderRadius: '16px',
-        padding: '22px', marginBottom: '24px', flexWrap: 'wrap',
-      }}>
-        <div style={{
-          width: '64px', height: '64px', borderRadius: '16px',
-          background: 'linear-gradient(135deg, #00e0ff, #7b5cff)',
-          display: 'grid', placeItems: 'center',
-          fontSize: '26px', fontWeight: 800, color: '#04121f',
-        }}>
-          {initials}
-        </div>
-        <div style={{ flex: 1 }}>
-          <h2 style={{ fontSize: '22px', fontWeight: 800, letterSpacing: '-0.5px' }}>
-            {organizer?.name}
-          </h2>
-          <p className="muted" style={{ fontSize: '13px' }}>
-            {user.email} &middot; <span className="pill green">Aprobado</span>
-          </p>
+      {/* HEADER CON CARD PRO */}
+      <div className="pro-card">
+        <div className="pro-card-inner">
+          <div style={{ display: 'flex', alignItems: 'center', gap: '18px', flexWrap: 'wrap' }}>
+            <div style={{
+              width: '64px', height: '64px', borderRadius: '16px',
+              background: 'linear-gradient(135deg, #ffd166, #ffb02e)',
+              display: 'grid', placeItems: 'center',
+              fontSize: '26px', fontWeight: 800, color: '#1a1408',
+              boxShadow: '0 4px 16px rgba(255, 176, 46, 0.4)',
+            }}>
+              {initials}
+            </div>
+            <div style={{ flex: 1, minWidth: '200px' }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: '10px', flexWrap: 'wrap', marginBottom: '4px' }}>
+                <h2 style={{
+                  fontSize: '22px',
+                  fontWeight: 800,
+                  letterSpacing: '-0.5px',
+                  margin: 0,
+                }} className="pro-text-gradient">
+                  {organizer?.name}
+                </h2>
+                <span className="pro-badge">⭐ PLAN PRO</span>
+              </div>
+              <p className="muted" style={{ fontSize: '13px' }}>
+                {user.email}
+              </p>
+            </div>
+            <div style={{
+              padding: '12px 18px',
+              background: 'rgba(255, 209, 102, 0.08)',
+              border: '1px solid rgba(255, 209, 102, 0.3)',
+              borderRadius: '12px',
+              textAlign: 'center',
+            }}>
+              <div className="muted" style={{ fontSize: '11px', textTransform: 'uppercase', letterSpacing: '0.6px' }}>
+                Estado
+              </div>
+              <div style={{ fontSize: '16px', fontWeight: 800, color: '#22d67f', marginTop: '2px' }}>
+                Activo
+              </div>
+            </div>
+          </div>
         </div>
       </div>
 
+      {/* STATS */}
       <div style={{
         display: 'grid',
         gridTemplateColumns: 'repeat(auto-fill, minmax(200px, 1fr))',
@@ -59,11 +98,16 @@ export default function Panel({ user, organizer }) {
           <div style={{ fontSize: '26px', fontWeight: 800 }}>{tournaments.length}</div>
         </div>
         <div className="panel">
-          <div className="muted" style={{ fontSize: '12px' }}>Estado</div>
-          <div style={{ fontSize: '20px', fontWeight: 800, color: '#22d67f' }}>Activo</div>
+          <div className="muted" style={{ fontSize: '12px' }}>Abiertos</div>
+          <div style={{ fontSize: '26px', fontWeight: 800, color: '#22d67f' }}>{openCount}</div>
+        </div>
+        <div className="panel">
+          <div className="muted" style={{ fontSize: '12px' }}>Finalizados</div>
+          <div style={{ fontSize: '26px', fontWeight: 800, color: '#ff3d71' }}>{finishedCount}</div>
         </div>
       </div>
 
+      {/* TÍTULO + BOTÓN CREAR */}
       <div style={{
         display: 'flex', justifyContent: 'space-between',
         alignItems: 'center', marginBottom: '20px', flexWrap: 'wrap', gap: '12px',
@@ -74,17 +118,58 @@ export default function Panel({ user, organizer }) {
         </Link>
       </div>
 
+      {/* FILTROS */}
+      {tournaments.length > 0 && (
+        <div style={{
+          display: 'flex', gap: '6px', marginBottom: '20px',
+          borderBottom: '1px solid #232c44', paddingBottom: '12px',
+          overflowX: 'auto',
+        }}>
+          {[
+            { id: 'all', label: 'Todos', count: tournaments.length },
+            { id: 'open', label: 'Abiertos', count: openCount },
+            { id: 'finished', label: 'Finalizados', count: finishedCount },
+          ].map((f) => (
+            <button
+              key={f.id}
+              onClick={() => setFilter(f.id)}
+              style={{
+                padding: '8px 16px',
+                borderRadius: '9px',
+                fontSize: '13px',
+                fontWeight: 600,
+                background: filter === f.id ? 'rgba(0, 224, 255, 0.08)' : 'transparent',
+                color: filter === f.id ? '#00e0ff' : '#8a94a8',
+                border: 'none',
+                cursor: 'pointer',
+                whiteSpace: 'nowrap',
+                transition: '0.18s',
+              }}
+            >
+              {f.label} ({f.count})
+            </button>
+          ))}
+        </div>
+      )}
+
+      {/* LISTA */}
       {loading ? (
         <div className="empty">
           <span className="spinner"></span>
           <p style={{ marginTop: '12px' }}>Cargando torneos...</p>
         </div>
-      ) : tournaments.length === 0 ? (
+      ) : filtered.length === 0 ? (
         <div className="empty">
-          <p style={{ marginBottom: '16px' }}>Todavía no creaste ningún torneo.</p>
-          <Link to="/panel/crear" className="btn btn-primary">
-            + Crear mi primer torneo
-          </Link>
+          <p style={{ marginBottom: '16px' }}>
+            {tournaments.length === 0
+              ? 'Todavía no creaste ningún torneo.'
+              : 'No hay torneos con ese filtro.'}
+          </p>
+          {tournaments.length === 0 && (
+            <Link to="/panel/crear" className="btn btn-primary">
+              + Crear mi primer torneo
+            </Link>
+          )}
         </div>
       ) : (
         <div style={{
@@ -92,7 +177,7 @@ export default function Panel({ user, organizer }) {
           gridTemplateColumns: 'repeat(auto-fill, minmax(320px, 1fr))',
           gap: '20px',
         }}>
-          {tournaments.map((t) => (
+          {filtered.map((t) => (
             <Link
               key={t.id}
               to={`/panel/torneo/${t.id}`}
