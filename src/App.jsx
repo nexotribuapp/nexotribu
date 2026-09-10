@@ -8,6 +8,7 @@ import Esperando from './pages/Esperando';
 import Panel from './pages/Panel';
 import CrearTorneo from './pages/CrearTorneo';
 import Torneo from './pages/Torneo';
+import GestionTorneo from './pages/GestionTorneo';
 import Admin from './pages/Admin';
 import './App.css';
 
@@ -131,6 +132,12 @@ function App() {
                 !organizer || !organizer.profile_completed ? <Navigate to="/solicitud" replace /> :
                 organizer.status !== 'approved' ? <Navigate to="/esperando" replace /> :
                 <CrearTorneo user={user} organizer={organizer} />
+              } />
+              <Route path="/panel/torneo/:id" element={
+                !user ? <Navigate to="/login" replace /> :
+                !organizer || !organizer.profile_completed ? <Navigate to="/solicitud" replace /> :
+                organizer.status !== 'approved' ? <Navigate to="/esperando" replace /> :
+                <GestionTorneo user={user} />
               } />
               <Route path="/admin" element={
                 !user ? <Navigate to="/login" replace /> : <Admin user={user} />

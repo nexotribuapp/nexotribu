@@ -1,4 +1,5 @@
 import { useEffect, useState } from 'react';
+import { Link } from 'react-router-dom';
 import { supabase } from '../lib/supabase';
 
 export default function Panel({ user, organizer }) {
@@ -24,7 +25,6 @@ export default function Panel({ user, organizer }) {
 
   return (
     <div style={{ padding: '40px 0' }}>
-      {/* HEADER */}
       <div style={{
         display: 'flex', alignItems: 'center', gap: '18px',
         background: 'linear-gradient(120deg, #161d2e, #1c2438)',
@@ -49,7 +49,6 @@ export default function Panel({ user, organizer }) {
         </div>
       </div>
 
-      {/* STATS */}
       <div style={{
         display: 'grid',
         gridTemplateColumns: 'repeat(auto-fill, minmax(200px, 1fr))',
@@ -65,18 +64,16 @@ export default function Panel({ user, organizer }) {
         </div>
       </div>
 
-      {/* CREAR TORNEO */}
       <div style={{
         display: 'flex', justifyContent: 'space-between',
         alignItems: 'center', marginBottom: '20px', flexWrap: 'wrap', gap: '12px',
       }}>
         <h3 style={{ fontSize: '20px', fontWeight: 700 }}>Mis torneos</h3>
-        <a href="/panel/crear" className="btn btn-primary">
+        <Link to="/panel/crear" className="btn btn-primary">
           + Crear torneo
-        </a>
+        </Link>
       </div>
 
-      {/* LISTA DE TORNEOS */}
       {loading ? (
         <div className="empty">
           <span className="spinner"></span>
@@ -85,9 +82,9 @@ export default function Panel({ user, organizer }) {
       ) : tournaments.length === 0 ? (
         <div className="empty">
           <p style={{ marginBottom: '16px' }}>Todavía no creaste ningún torneo.</p>
-          <a href="/panel/crear" className="btn btn-primary">
+          <Link to="/panel/crear" className="btn btn-primary">
             + Crear mi primer torneo
-          </a>
+          </Link>
         </div>
       ) : (
         <div style={{
@@ -96,21 +93,22 @@ export default function Panel({ user, organizer }) {
           gap: '20px',
         }}>
           {tournaments.map((t) => (
-            <a
+            <Link
               key={t.id}
-              href={`/torneo/${t.slug}`}
+              to={`/panel/torneo/${t.id}`}
               style={{
                 background: 'linear-gradient(180deg, #161d2e 0%, #1c2438 100%)',
                 border: '1px solid #232c44', borderRadius: '14px',
-                overflow: 'hidden', cursor: 'pointer',
-                transition: '0.22s', textDecoration: 'none', color: 'inherit',
+                overflow: 'hidden', transition: '0.22s',
+                textDecoration: 'none', color: 'inherit',
                 display: 'flex', flexDirection: 'column',
               }}
             >
-              {/* COVER */}
               <div style={{
                 height: '140px',
-                background: t.banner_url ? `url(${t.banner_url}) center/cover` : 'linear-gradient(135deg, #1a2540, #0e1524)',
+                background: t.banner_url
+                  ? `url(${t.banner_url}) center/cover`
+                  : 'linear-gradient(135deg, #1a2540, #0e1524)',
                 position: 'relative',
                 display: 'grid', placeItems: 'center',
               }}>
@@ -127,7 +125,6 @@ export default function Panel({ user, organizer }) {
                 </span>
               </div>
 
-              {/* BODY */}
               <div style={{ padding: '18px', display: 'flex', flexDirection: 'column', gap: '12px', flex: 1 }}>
                 <h4 style={{ fontSize: '16px', fontWeight: 700, letterSpacing: '-0.3px' }}>
                   {t.name}
@@ -150,7 +147,7 @@ export default function Panel({ user, organizer }) {
                   <span>Gestionar →</span>
                 </div>
               </div>
-            </a>
+            </Link>
           ))}
         </div>
       )}
