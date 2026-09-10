@@ -7,6 +7,7 @@ import Solicitud from './pages/Solicitud';
 import Esperando from './pages/Esperando';
 import Panel from './pages/Panel';
 import CrearTorneo from './pages/CrearTorneo';
+import Torneo from './pages/Torneo';
 import Admin from './pages/Admin';
 import './App.css';
 
@@ -105,6 +106,7 @@ function App() {
           ) : (
             <Routes>
               <Route path="/" element={<Home />} />
+              <Route path="/torneo/:slug" element={<Torneo />} />
               <Route path="/login" element={
                 user ? <Navigate to={getRedirectPath()} replace /> : <Login />
               } />
