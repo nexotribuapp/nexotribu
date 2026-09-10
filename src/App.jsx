@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react';
-import { BrowserRouter, Routes, Route, Link, Navigate, useNavigate } from 'react-router-dom';
+import { BrowserRouter, Routes, Route, Link, Navigate } from 'react-router-dom';
 import { supabase } from './lib/supabase';
 import Home from './pages/Home';
 import Login from './pages/Login';
@@ -9,12 +9,23 @@ import Panel from './pages/Panel';
 import Admin from './pages/Admin';
 import './App.css';
 
+function LoadingScreen() {
+  return (
+    <div style={{
+      minHeight: '60vh',
+      display: 'grid',
+      placeItems: 'center',
+    }}>
+      <div className="spinner" style={{ width: '40px', height: '40px', borderWidth: '4px' }}></div>
+    </div>
+  );
+}
+
 function App() {
   const [user, setUser] = useState(null);
   const [organizer, setOrganizer] = useState(null);
   const [loading, setLoading] = useState(true);
 
-  // Cargar sesión inicial
   useEffect(() => {
     supabase.auth.getSession().then(({ data: { session } }) => {
       setUser(session?.user ?? null);
@@ -32,23 +43,18 @@ function App() {
     return () => subscription.unsubscribe();
   }, []);
 
-  // Cargar datos del organizador cuando cambia el user
   useEffect(() => {
     if (!user) return;
-    
+
     async function loadOrganizer() {
       setLoading(true);
       const { data, error } = await supabase
         .from('organizers')
         .select('*')
         .eq('id', user.id)
-        .single();
+        .maybeSingle();
 
-      if (error) {
-        console.error('Error cargando organizador:', error);
-      } else {
-        setOrganizer(data);
-      }
+      if (!error && data) setOrganizer(data);
       setLoading(false);
     }
 
@@ -60,12 +66,10 @@ function App() {
     window.location.href = '/';
   }
 
-  // Determinar dónde redirigir al usuario logueado
   function getRedirectPath() {
     if (!organizer) return '/solicitud';
     if (!organizer.profile_completed) return '/solicitud';
-    if (organizer.status === 'pending') return '/esperando';
-    if (organizer.status === 'rejected') return '/esperando';
+    if (organizer.status !== 'approved') return '/esperando';
     return '/panel';
   }
 
@@ -84,19 +88,8 @@ function App() {
               {!loading && user && organizer && (
                 <>
                   {organizer.status === 'approved' && <Link to="/panel">Mi panel</Link>}
-                  <span style={{ color: '#8a94a8', fontSize: '13px' }}>
-                    {user.email}
-                  </span>
-                  <button
-                    onClick={handleLogout}
-                    style={{
-                      fontSize: '14px',
-                      color: '#8a94a8',
-                      padding: '8px 14px',
-                      borderRadius: '9px',
-                      cursor: 'pointer',
-                    }}
-                  >
+                  <span style={{ color: '#8a94a8', fontSize: '13px' }}>{user.email}</span>
+                  <button onClick={handleLogout} style={{ fontSize: '14px', color: '#8a94a8', padding: '8px 14px', borderRadius: '9px' }}>
                     Cerrar sesión
                   </button>
                 </>
@@ -106,32 +99,35 @@ function App() {
         </header>
 
         <main className="container">
-          <Routes>
-            <Route path="/" element={<Home />} />
-            <Route path="/login" element={
-              !loading && user ? <Navigate to={getRedirectPath()} replace /> : <Login />
-            } />
-            <Route path="/solicitud" element={
-              !loading && !user ? <Navigate to="/login" replace /> :
-              !loading && user && organizer?.profile_completed ? <Navigate to={getRedirectPath()} replace /> :
-              <Solicitud user={user} organizer={organizer} onComplete={setOrganizer} />
-            } />
-            <Route path="/esperando" element={
-              !loading && !user ? <Navigate to="/login" replace /> :
-              !loading && user && organizer?.status === 'approved' ? <Navigate to="/panel" replace /> :
-              <Esperando organizer={organizer} />
-            } />
-            <Route path="/panel" element={
-              !loading && !user ? <Navigate to="/login" replace /> :
-              !loading && user && (!organizer || !organizer.profile_completed) ? <Navigate to="/solicitud" replace /> :
-              !loading && user && organizer?.status !== 'approved' ? <Navigate to="/esperando" replace /> :
-              <Panel user={user} organizer={organizer} />
-            } />
-            <Route path="/admin" element={
-              !loading && !user ? <Navigate to="/login" replace /> :
-              <Admin user={user} />
-            } />
-          </Routes>
+          {loading ? (
+            <LoadingScreen />
+          ) : (
+            <Routes>
+              <Route path="/" element={<Home />} />
+              <Route path="/login" element={
+                user ? <Navigate to={getRedirectPath()} replace /> : <Login />
+              } />
+              <Route path="/solicitud" element={
+                !user ? <Navigate to="/login" replace /> :
+                organizer?.profile_completed ? <Navigate to={getRedirectPath()} replace /> :
+                <Solicitud user={user} organizer={organizer} onComplete={setOrganizer} />
+              } />
+              <Route path="/esperando" element={
+                !user ? <Navigate to="/login" replace /> :
+                organizer?.status === 'approved' ? <Navigate to="/panel" replace /> :
+                <Esperando organizer={organizer} />
+              } />
+              <Route path="/panel" element={
+                !user ? <Navigate to="/login" replace /> :
+                !organizer || !organizer.profile_completed ? <Navigate to="/solicitud" replace /> :
+                organizer.status !== 'approved' ? <Navigate to="/esperando" replace /> :
+                <Panel user={user} organizer={organizer} />
+              } />
+              <Route path="/admin" element={
+                !user ? <Navigate to="/login" replace /> : <Admin user={user} />
+              } />
+            </Routes>
+          )}
         </main>
 
         <footer className="footer">
