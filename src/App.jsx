@@ -9,16 +9,14 @@ import Panel from './pages/Panel';
 import CrearTorneo from './pages/CrearTorneo';
 import Torneo from './pages/Torneo';
 import GestionTorneo from './pages/GestionTorneo';
+import Inscripcion from './pages/Inscripcion';
+import InscripcionExitosa from './pages/InscripcionExitosa';
 import Admin from './pages/Admin';
 import './App.css';
 
 function LoadingScreen() {
   return (
-    <div style={{
-      minHeight: '60vh',
-      display: 'grid',
-      placeItems: 'center',
-    }}>
+    <div style={{ minHeight: '60vh', display: 'grid', placeItems: 'center' }}>
       <div className="spinner" style={{ width: '40px', height: '40px', borderWidth: '4px' }}></div>
     </div>
   );
@@ -108,6 +106,8 @@ function App() {
             <Routes>
               <Route path="/" element={<Home />} />
               <Route path="/torneo/:slug" element={<Torneo />} />
+              <Route path="/torneo/:slug/inscribirse" element={<Inscripcion />} />
+              <Route path="/inscripcion-exitosa/:token" element={<InscripcionExitosa />} />
               <Route path="/login" element={
                 user ? <Navigate to={getRedirectPath()} replace /> : <Login />
               } />

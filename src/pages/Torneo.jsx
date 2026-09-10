@@ -189,9 +189,18 @@ export default function Torneo() {
             </div>
 
             <div style={{ marginTop: '20px' }}>
-              <button className="btn btn-primary btn-block" disabled>
-                Inscripción próximamente
-              </button>
+              {tournament.status === 'open' ? (
+                <Link
+                  to={`/torneo/${tournament.slug}/inscribirse`}
+                  className="btn btn-primary btn-block"
+                >
+                  Inscribirme →
+                </Link>
+              ) : (
+                <button className="btn btn-ghost btn-block" disabled>
+                  Inscripciones cerradas
+                </button>
+              )}
             </div>
 
             <p className="muted" style={{ fontSize: '11px', marginTop: '12px', textAlign: 'center' }}>
