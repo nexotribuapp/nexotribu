@@ -48,16 +48,13 @@ export default function InscripcionExitosa() {
   if (!participant) {
     return (
       <div className="empty" style={{ marginTop: '80px' }}>
-        <h2 style={{ fontSize: '24px', marginBottom: '8px', color: '#e7ecf5' }}>
-          Enlace inválido
-        </h2>
-        <p style={{ marginBottom: '20px' }}>Este token de acceso no existe o expiró.</p>
+        <h2 style={{ fontSize: '24px', marginBottom: '8px', color: '#e7ecf5' }}>Enlace inválido</h2>
         <Link to="/" className="btn btn-primary">Volver al inicio</Link>
       </div>
     );
   }
 
-  const isPending = participant.payment_status === 'pending';
+  const isPending = participant.payment_status === 'pending' || participant.payment_status === 'pending_review';
 
   return (
     <div style={{ maxWidth: '560px', margin: '40px auto' }}>
@@ -117,7 +114,10 @@ export default function InscripcionExitosa() {
         </div>
 
         <div style={{ display: 'flex', gap: '10px', justifyContent: 'center', flexWrap: 'wrap' }}>
-          <button onClick={copyLink} className="btn btn-primary">
+          <Link to={`/acceso/${token}`} className="btn btn-primary">
+            Ir a mi panel de jugador →
+          </Link>
+          <button onClick={copyLink} className="btn btn-ghost">
             {copied ? '✓ Copiado' : '🔗 Copiar enlace'}
           </button>
           <Link to={`/torneo/${tournament?.slug}`} className="btn btn-ghost">

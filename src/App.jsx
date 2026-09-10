@@ -13,6 +13,7 @@ import Inscripcion from './pages/Inscripcion';
 import InscripcionExitosa from './pages/InscripcionExitosa';
 import SubirComprobante from './pages/SubirComprobante';
 import ValidarPagos from './pages/ValidarPagos';
+import PlayerPanel from './pages/PlayerPanel';
 import Admin from './pages/Admin';
 import './App.css';
 
@@ -112,6 +113,7 @@ function App() {
               <Route path="/torneo/:slug/inscribirse" element={<Inscripcion />} />
               <Route path="/inscripcion-exitosa/:token" element={<InscripcionExitosa />} />
               <Route path="/subir-comprobante/:token" element={<SubirComprobante />} />
+              <Route path="/acceso/:token" element={<PlayerPanel />} />
               <Route path="/login" element={
                 user ? <Navigate to={getRedirectPath()} replace /> : <Login />
               } />

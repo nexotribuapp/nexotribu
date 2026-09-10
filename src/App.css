@@ -22,20 +22,45 @@ input, textarea, select { font-family: inherit; }
    NAV
    ============================================================ */
 .nav {
-  position: sticky; top: 0; z-index: 50;
+  position: sticky;
+  top: 0;
+  z-index: 50;
   backdrop-filter: blur(14px);
   background: rgba(10, 14, 26, 0.78);
   border-bottom: 1px solid #232c44;
 }
-.nav-inner { display: flex; align-items: center; justify-content: space-between; height: 66px; gap: 16px; }
-.logo { display: flex; align-items: center; gap: 10px; font-weight: 800; font-size: 19px; }
+.nav-inner {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  height: 66px;
+  gap: 16px;
+}
+.logo {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  font-weight: 800;
+  font-size: 19px;
+}
 .logo .dot {
-  width: 32px; height: 32px; border-radius: 9px;
+  width: 32px;
+  height: 32px;
+  border-radius: 9px;
   background: linear-gradient(135deg, #00e0ff, #7b5cff);
-  display: grid; place-items: center; color: #04121f; font-weight: 900;
+  display: grid;
+  place-items: center;
+  color: #04121f;
+  font-weight: 900;
 }
 .nav-links { display: flex; gap: 8px; align-items: center; }
-.nav-links a { font-size: 14px; color: #8a94a8; padding: 8px 14px; border-radius: 9px; transition: 0.2s; }
+.nav-links a {
+  font-size: 14px;
+  color: #8a94a8;
+  padding: 8px 14px;
+  border-radius: 9px;
+  transition: 0.2s;
+}
 .nav-links a:hover { color: #e7ecf5; background: #161d2e; }
 
 main { min-height: calc(100vh - 66px - 100px); }
@@ -55,10 +80,16 @@ main { min-height: calc(100vh - 66px - 100px); }
    BOTONES
    ============================================================ */
 .btn {
-  display: inline-flex; align-items: center; justify-content: center; gap: 8px;
-  padding: 11px 20px; border-radius: 11px;
-  font-weight: 600; font-size: 14px;
-  transition: 0.18s; border: 1px solid transparent;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  padding: 11px 20px;
+  border-radius: 11px;
+  font-weight: 600;
+  font-size: 14px;
+  transition: 0.18s;
+  border: 1px solid transparent;
   cursor: pointer;
 }
 .btn:disabled { opacity: 0.5; cursor: not-allowed; }
@@ -67,18 +98,25 @@ main { min-height: calc(100vh - 66px - 100px); }
   color: #04121f;
   box-shadow: 0 6px 24px rgba(0, 224, 255, 0.28);
 }
-.btn-primary:hover:not(:disabled) { transform: translateY(-1px); box-shadow: 0 10px 30px rgba(0, 224, 255, 0.4); }
+.btn-primary:hover:not(:disabled) {
+  transform: translateY(-1px);
+  box-shadow: 0 10px 30px rgba(0, 224, 255, 0.4);
+}
 .btn-ghost {
-  background: #161d2e; border-color: #232c44; color: #e7ecf5;
+  background: #161d2e;
+  border-color: #232c44;
+  color: #e7ecf5;
 }
 .btn-ghost:hover:not(:disabled) { background: #1c2438; }
 .btn-danger {
-  background: rgba(255, 61, 113, 0.12); color: #ff3d71;
+  background: rgba(255, 61, 113, 0.12);
+  color: #ff3d71;
   border-color: rgba(255, 61, 113, 0.35);
 }
 .btn-danger:hover:not(:disabled) { background: rgba(255, 61, 113, 0.2); }
 .btn-success {
-  background: rgba(34, 214, 127, 0.12); color: #22d67f;
+  background: rgba(34, 214, 127, 0.12);
+  color: #22d67f;
   border-color: rgba(34, 214, 127, 0.35);
 }
 .btn-success:hover:not(:disabled) { background: rgba(34, 214, 127, 0.2); }
@@ -95,27 +133,50 @@ main { min-height: calc(100vh - 66px - 100px); }
   padding: 22px;
 }
 .panel h2 { font-size: 20px; margin-bottom: 8px; letter-spacing: -0.3px; }
-.panel h3 { font-size: 15px; font-weight: 700; margin-bottom: 14px; display: flex; align-items: center; gap: 8px; }
+.panel h3 {
+  font-size: 15px;
+  font-weight: 700;
+  margin-bottom: 14px;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
 
 /* ============================================================
    FORM
    ============================================================ */
 .form-group { margin-bottom: 16px; }
-.form-group label { display: block; font-size: 13px; font-weight: 600; margin-bottom: 7px; }
+.form-group label {
+  display: block;
+  font-size: 13px;
+  font-weight: 600;
+  margin-bottom: 7px;
+}
 .form-group input,
 .form-group select,
 .form-group textarea {
-  width: 100%; padding: 12px 14px; border-radius: 10px;
-  background: #101625; border: 1px solid #232c44; color: #e7ecf5;
-  font-size: 14px; transition: 0.18s;
+  width: 100%;
+  padding: 12px 14px;
+  border-radius: 10px;
+  background: #101625;
+  border: 1px solid #232c44;
+  color: #e7ecf5;
+  font-size: 14px;
+  transition: 0.18s;
 }
 .form-group input:focus,
 .form-group select:focus,
 .form-group textarea:focus {
-  outline: none; border-color: #00e0ff;
+  outline: none;
+  border-color: #00e0ff;
   box-shadow: 0 0 0 3px rgba(0, 224, 255, 0.12);
 }
-.form-group small { color: #8a94a8; font-size: 12px; margin-top: 5px; display: block; }
+.form-group small {
+  color: #8a94a8;
+  font-size: 12px;
+  margin-top: 5px;
+  display: block;
+}
 .form-row { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
 @media (max-width: 600px) { .form-row { grid-template-columns: 1fr; } }
 .required { color: #ff3d71; }
@@ -124,78 +185,53 @@ main { min-height: calc(100vh - 66px - 100px); }
    PILLS / BADGES
    ============================================================ */
 .pill {
-  display: inline-flex; align-items: center; gap: 5px;
-  font-size: 11px; font-weight: 700; letter-spacing: 0.6px;
-  text-transform: uppercase; padding: 5px 10px;
-  border-radius: 20px;
-  background: #161d2e; border: 1px solid #232c44; color: #8a94a8;
-}
-.pill.green { color: #22d67f; border-color: rgba(34, 214, 127, 0.35); background: rgba(34, 214, 127, 0.08); }
-.pill.yellow { color: #ffb02e; border-color: rgba(255, 176, 46, 0.35); background: rgba(255, 176, 46, 0.08); }
-.pill.red { color: #ff3d71; border-color: rgba(255, 61, 113, 0.35); background: rgba(255, 61, 113, 0.08); }
-.pill.blue { color: #00e0ff; border-color: rgba(0, 224, 255, 0.35); background: rgba(0, 224, 255, 0.08); }
-
-/* ============================================================
-   PLAN PRO (dorado)
-   ============================================================ */
-.pro-card {
-  position: relative;
-  border-radius: 16px;
-  padding: 2px;
-  background: linear-gradient(120deg, #ffd166, #ffb02e, #ffd166, #ff8c00, #ffd166);
-  background-size: 300% 300%;
-  animation: shimmer 4s linear infinite;
-  margin-bottom: 24px;
-}
-.pro-card-inner {
-  background: linear-gradient(135deg, #1a1408 0%, #2a1f0a 50%, #1a1408 100%);
-  border-radius: 14px;
-  padding: 22px;
-}
-@keyframes shimmer {
-  0% { background-position: 0% 50%; }
-  100% { background-position: 300% 50%; }
-}
-.pro-badge {
-  display: inline-flex; align-items: center; gap: 6px;
-  padding: 6px 12px;
-  border-radius: 20px;
-  background: linear-gradient(135deg, #ffd166, #ffb02e);
-  color: #1a1408;
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
   font-size: 11px;
-  font-weight: 900;
-  letter-spacing: 1px;
+  font-weight: 700;
+  letter-spacing: 0.6px;
   text-transform: uppercase;
-  box-shadow: 0 4px 16px rgba(255, 176, 46, 0.4);
+  padding: 5px 10px;
+  border-radius: 20px;
+  background: #161d2e;
+  border: 1px solid #232c44;
+  color: #8a94a8;
 }
-.pro-badge::before {
-  content: '';
-  width: 6px; height: 6px;
-  border-radius: 50%;
-  background: #1a1408;
-  animation: pulse 1.5s infinite;
+.pill.green {
+  color: #22d67f;
+  border-color: rgba(34, 214, 127, 0.35);
+  background: rgba(34, 214, 127, 0.08);
 }
-@keyframes pulse {
-  0%, 100% { opacity: 1; }
-  50% { opacity: 0.3; }
+.pill.yellow {
+  color: #ffb02e;
+  border-color: rgba(255, 176, 46, 0.35);
+  background: rgba(255, 176, 46, 0.08);
 }
-.pro-text-gradient {
-  background: linear-gradient(135deg, #ffd166, #ffb02e);
-  -webkit-background-clip: text;
-  background-clip: text;
-  -webkit-text-fill-color: transparent;
+.pill.red {
+  color: #ff3d71;
+  border-color: rgba(255, 61, 113, 0.35);
+  background: rgba(255, 61, 113, 0.08);
+}
+.pill.blue {
+  color: #00e0ff;
+  border-color: rgba(0, 224, 255, 0.35);
+  background: rgba(0, 224, 255, 0.08);
 }
 
 /* ============================================================
    UTIL
    ============================================================ */
 .empty {
-  text-align: center; padding: 60px 20px;
+  text-align: center;
+  padding: 60px 20px;
   color: #8a94a8;
-  border: 1px dashed #232c44; border-radius: 14px;
+  border: 1px dashed #232c44;
+  border-radius: 14px;
 }
 .spinner {
-  width: 20px; height: 20px;
+  width: 20px;
+  height: 20px;
   border: 2.5px solid #232c44;
   border-top-color: #00e0ff;
   border-radius: 50%;

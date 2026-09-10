@@ -24,12 +24,9 @@ export default function Panel({ user, organizer }) {
 
   const initials = organizer?.name?.charAt(0)?.toUpperCase() || '?';
 
-  // Contadores
-  const totalParticipants = tournaments.reduce((acc, t) => acc, 0);
   const openCount = tournaments.filter((t) => t.status === 'open').length;
   const finishedCount = tournaments.filter((t) => t.status === 'finished').length;
 
-  // Filtro
   const filtered = tournaments.filter((t) => {
     if (filter === 'all') return true;
     if (filter === 'open') return t.status === 'open';
@@ -40,50 +37,52 @@ export default function Panel({ user, organizer }) {
 
   return (
     <div style={{ padding: '40px 0' }}>
-      {/* HEADER CON CARD PRO */}
-      <div className="pro-card">
-        <div className="pro-card-inner">
-          <div style={{ display: 'flex', alignItems: 'center', gap: '18px', flexWrap: 'wrap' }}>
-            <div style={{
-              width: '64px', height: '64px', borderRadius: '16px',
-              background: 'linear-gradient(135deg, #ffd166, #ffb02e)',
-              display: 'grid', placeItems: 'center',
-              fontSize: '26px', fontWeight: 800, color: '#1a1408',
-              boxShadow: '0 4px 16px rgba(255, 176, 46, 0.4)',
+      {/* HEADER */}
+      <div style={{
+        display: 'flex',
+        alignItems: 'center',
+        gap: '18px',
+        background: 'linear-gradient(120deg, #161d2e, #1c2438)',
+        border: '1px solid #232c44',
+        borderRadius: '16px',
+        padding: '22px',
+        marginBottom: '24px',
+        flexWrap: 'wrap',
+      }}>
+        <div style={{
+          width: '64px',
+          height: '64px',
+          borderRadius: '16px',
+          background: 'linear-gradient(135deg, #00e0ff, #7b5cff)',
+          display: 'grid',
+          placeItems: 'center',
+          fontSize: '26px',
+          fontWeight: 800,
+          color: '#04121f',
+        }}>
+          {initials}
+        </div>
+        <div style={{ flex: 1, minWidth: '200px' }}>
+          <div style={{
+            display: 'flex',
+            alignItems: 'center',
+            gap: '10px',
+            flexWrap: 'wrap',
+            marginBottom: '4px',
+          }}>
+            <h2 style={{
+              fontSize: '22px',
+              fontWeight: 800,
+              letterSpacing: '-0.5px',
+              margin: 0,
             }}>
-              {initials}
-            </div>
-            <div style={{ flex: 1, minWidth: '200px' }}>
-              <div style={{ display: 'flex', alignItems: 'center', gap: '10px', flexWrap: 'wrap', marginBottom: '4px' }}>
-                <h2 style={{
-                  fontSize: '22px',
-                  fontWeight: 800,
-                  letterSpacing: '-0.5px',
-                  margin: 0,
-                }} className="pro-text-gradient">
-                  {organizer?.name}
-                </h2>
-                <span className="pro-badge">⭐ PLAN PRO</span>
-              </div>
-              <p className="muted" style={{ fontSize: '13px' }}>
-                {user.email}
-              </p>
-            </div>
-            <div style={{
-              padding: '12px 18px',
-              background: 'rgba(255, 209, 102, 0.08)',
-              border: '1px solid rgba(255, 209, 102, 0.3)',
-              borderRadius: '12px',
-              textAlign: 'center',
-            }}>
-              <div className="muted" style={{ fontSize: '11px', textTransform: 'uppercase', letterSpacing: '0.6px' }}>
-                Estado
-              </div>
-              <div style={{ fontSize: '16px', fontWeight: 800, color: '#22d67f', marginTop: '2px' }}>
-                Activo
-              </div>
-            </div>
+              {organizer?.name}
+            </h2>
+            <span className="pill blue">Organizador</span>
           </div>
+          <p className="muted" style={{ fontSize: '13px' }}>
+            {user.email}
+          </p>
         </div>
       </div>
 
@@ -91,7 +90,8 @@ export default function Panel({ user, organizer }) {
       <div style={{
         display: 'grid',
         gridTemplateColumns: 'repeat(auto-fill, minmax(200px, 1fr))',
-        gap: '16px', marginBottom: '32px',
+        gap: '16px',
+        marginBottom: '32px',
       }}>
         <div className="panel">
           <div className="muted" style={{ fontSize: '12px' }}>Mis torneos</div>
@@ -109,8 +109,12 @@ export default function Panel({ user, organizer }) {
 
       {/* TÍTULO + BOTÓN CREAR */}
       <div style={{
-        display: 'flex', justifyContent: 'space-between',
-        alignItems: 'center', marginBottom: '20px', flexWrap: 'wrap', gap: '12px',
+        display: 'flex',
+        justifyContent: 'space-between',
+        alignItems: 'center',
+        marginBottom: '20px',
+        flexWrap: 'wrap',
+        gap: '12px',
       }}>
         <h3 style={{ fontSize: '20px', fontWeight: 700 }}>Mis torneos</h3>
         <Link to="/panel/crear" className="btn btn-primary">
@@ -121,8 +125,11 @@ export default function Panel({ user, organizer }) {
       {/* FILTROS */}
       {tournaments.length > 0 && (
         <div style={{
-          display: 'flex', gap: '6px', marginBottom: '20px',
-          borderBottom: '1px solid #232c44', paddingBottom: '12px',
+          display: 'flex',
+          gap: '6px',
+          marginBottom: '20px',
+          borderBottom: '1px solid #232c44',
+          paddingBottom: '12px',
           overflowX: 'auto',
         }}>
           {[
@@ -183,10 +190,14 @@ export default function Panel({ user, organizer }) {
               to={`/panel/torneo/${t.id}`}
               style={{
                 background: 'linear-gradient(180deg, #161d2e 0%, #1c2438 100%)',
-                border: '1px solid #232c44', borderRadius: '14px',
-                overflow: 'hidden', transition: '0.22s',
-                textDecoration: 'none', color: 'inherit',
-                display: 'flex', flexDirection: 'column',
+                border: '1px solid #232c44',
+                borderRadius: '14px',
+                overflow: 'hidden',
+                transition: '0.22s',
+                textDecoration: 'none',
+                color: 'inherit',
+                display: 'flex',
+                flexDirection: 'column',
               }}
             >
               <div style={{
@@ -195,7 +206,8 @@ export default function Panel({ user, organizer }) {
                   ? `url(${t.banner_url}) center/cover`
                   : 'linear-gradient(135deg, #1a2540, #0e1524)',
                 position: 'relative',
-                display: 'grid', placeItems: 'center',
+                display: 'grid',
+                placeItems: 'center',
               }}>
                 {!t.banner_url && (
                   <span style={{ fontSize: '44px', opacity: 0.4 }}>
@@ -210,12 +222,20 @@ export default function Panel({ user, organizer }) {
                 </span>
               </div>
 
-              <div style={{ padding: '18px', display: 'flex', flexDirection: 'column', gap: '12px', flex: 1 }}>
+              <div style={{
+                padding: '18px',
+                display: 'flex',
+                flexDirection: 'column',
+                gap: '12px',
+                flex: 1,
+              }}>
                 <h4 style={{ fontSize: '16px', fontWeight: 700, letterSpacing: '-0.3px' }}>
                   {t.name}
                 </h4>
                 <div style={{ display: 'flex', gap: '8px', flexWrap: 'wrap' }}>
-                  <span className="pill blue">{t.type === '1v1' ? '1 vs 1' : t.type === 'liga' ? 'Liga' : 'Coop 2v2'}</span>
+                  <span className="pill blue">
+                    {t.type === '1v1' ? '1 vs 1' : t.type === 'liga' ? 'Liga' : 'Coop 2v2'}
+                  </span>
                   <span className="pill">{t.platform || '—'}</span>
                   {t.is_paid ? (
                     <span className="pill yellow">USD {t.price}</span>
@@ -224,9 +244,13 @@ export default function Panel({ user, organizer }) {
                   )}
                 </div>
                 <div style={{
-                  display: 'flex', justifyContent: 'space-between',
-                  paddingTop: '12px', borderTop: '1px solid #232c44',
-                  fontSize: '13px', color: '#8a94a8', marginTop: 'auto',
+                  display: 'flex',
+                  justifyContent: 'space-between',
+                  paddingTop: '12px',
+                  borderTop: '1px solid #232c44',
+                  fontSize: '13px',
+                  color: '#8a94a8',
+                  marginTop: 'auto',
                 }}>
                   <span>{t.max_participants} cupos</span>
                   <span>Gestionar →</span>
