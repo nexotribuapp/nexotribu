@@ -1,28 +1,72 @@
 import { useEffect, useState } from 'react';
-import { BrowserRouter, Routes, Route, Link, useNavigate } from 'react-router-dom';
+import { BrowserRouter, Routes, Route, Link, Navigate, useNavigate } from 'react-router-dom';
 import { supabase } from './lib/supabase';
 import Home from './pages/Home';
 import Login from './pages/Login';
+import Solicitud from './pages/Solicitud';
+import Esperando from './pages/Esperando';
+import Panel from './pages/Panel';
+import Admin from './pages/Admin';
+import './App.css';
 
 function App() {
   const [user, setUser] = useState(null);
+  const [organizer, setOrganizer] = useState(null);
   const [loading, setLoading] = useState(true);
 
+  // Cargar sesión inicial
   useEffect(() => {
     supabase.auth.getSession().then(({ data: { session } }) => {
       setUser(session?.user ?? null);
-      setLoading(false);
+      if (!session) setLoading(false);
     });
 
     const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, session) => {
       setUser(session?.user ?? null);
+      if (!session) {
+        setOrganizer(null);
+        setLoading(false);
+      }
     });
 
     return () => subscription.unsubscribe();
   }, []);
 
+  // Cargar datos del organizador cuando cambia el user
+  useEffect(() => {
+    if (!user) return;
+    
+    async function loadOrganizer() {
+      setLoading(true);
+      const { data, error } = await supabase
+        .from('organizers')
+        .select('*')
+        .eq('id', user.id)
+        .single();
+
+      if (error) {
+        console.error('Error cargando organizador:', error);
+      } else {
+        setOrganizer(data);
+      }
+      setLoading(false);
+    }
+
+    loadOrganizer();
+  }, [user]);
+
   async function handleLogout() {
     await supabase.auth.signOut();
+    window.location.href = '/';
+  }
+
+  // Determinar dónde redirigir al usuario logueado
+  function getRedirectPath() {
+    if (!organizer) return '/solicitud';
+    if (!organizer.profile_completed) return '/solicitud';
+    if (organizer.status === 'pending') return '/esperando';
+    if (organizer.status === 'rejected') return '/esperando';
+    return '/panel';
   }
 
   return (
@@ -37,8 +81,9 @@ function App() {
             <nav className="nav-links">
               <Link to="/">Torneos</Link>
               {!loading && !user && <Link to="/login">Acceso organizadores</Link>}
-              {!loading && user && (
+              {!loading && user && organizer && (
                 <>
+                  {organizer.status === 'approved' && <Link to="/panel">Mi panel</Link>}
                   <span style={{ color: '#8a94a8', fontSize: '13px' }}>
                     {user.email}
                   </span>
@@ -63,7 +108,29 @@ function App() {
         <main className="container">
           <Routes>
             <Route path="/" element={<Home />} />
-            <Route path="/login" element={<Login />} />
+            <Route path="/login" element={
+              !loading && user ? <Navigate to={getRedirectPath()} replace /> : <Login />
+            } />
+            <Route path="/solicitud" element={
+              !loading && !user ? <Navigate to="/login" replace /> :
+              !loading && user && organizer?.profile_completed ? <Navigate to={getRedirectPath()} replace /> :
+              <Solicitud user={user} organizer={organizer} onComplete={setOrganizer} />
+            } />
+            <Route path="/esperando" element={
+              !loading && !user ? <Navigate to="/login" replace /> :
+              !loading && user && organizer?.status === 'approved' ? <Navigate to="/panel" replace /> :
+              <Esperando organizer={organizer} />
+            } />
+            <Route path="/panel" element={
+              !loading && !user ? <Navigate to="/login" replace /> :
+              !loading && user && (!organizer || !organizer.profile_completed) ? <Navigate to="/solicitud" replace /> :
+              !loading && user && organizer?.status !== 'approved' ? <Navigate to="/esperando" replace /> :
+              <Panel user={user} organizer={organizer} />
+            } />
+            <Route path="/admin" element={
+              !loading && !user ? <Navigate to="/login" replace /> :
+              <Admin user={user} />
+            } />
           </Routes>
         </main>
 
