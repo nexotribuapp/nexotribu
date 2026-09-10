@@ -7,6 +7,7 @@ export default function Panel({ user, organizer }) {
 
   useEffect(() => {
     async function load() {
+      setLoading(true);
       const { data, error } = await supabase
         .from('tournaments')
         .select('*')
@@ -70,9 +71,9 @@ export default function Panel({ user, organizer }) {
         alignItems: 'center', marginBottom: '20px', flexWrap: 'wrap', gap: '12px',
       }}>
         <h3 style={{ fontSize: '20px', fontWeight: 700 }}>Mis torneos</h3>
-        <button className="btn btn-primary" disabled>
-          + Crear torneo (próximamente)
-        </button>
+        <a href="/panel/crear" className="btn btn-primary">
+          + Crear torneo
+        </a>
       </div>
 
       {/* LISTA DE TORNEOS */}
@@ -84,23 +85,72 @@ export default function Panel({ user, organizer }) {
       ) : tournaments.length === 0 ? (
         <div className="empty">
           <p style={{ marginBottom: '16px' }}>Todavía no creaste ningún torneo.</p>
-          <p className="muted" style={{ fontSize: '13px' }}>
-            Muy pronto vas a poder crear torneos desde acá.
-          </p>
+          <a href="/panel/crear" className="btn btn-primary">
+            + Crear mi primer torneo
+          </a>
         </div>
       ) : (
         <div style={{
           display: 'grid',
-          gridTemplateColumns: 'repeat(auto-fill, minmax(300px, 1fr))',
-          gap: '16px',
+          gridTemplateColumns: 'repeat(auto-fill, minmax(320px, 1fr))',
+          gap: '20px',
         }}>
           {tournaments.map((t) => (
-            <div key={t.id} className="panel">
-              <h4 style={{ fontSize: '16px', fontWeight: 700, marginBottom: '8px' }}>
-                {t.name}
-              </h4>
-              <p className="muted" style={{ fontSize: '13px' }}>{t.game} &middot; {t.type}</p>
-            </div>
+            <a
+              key={t.id}
+              href={`/torneo/${t.slug}`}
+              style={{
+                background: 'linear-gradient(180deg, #161d2e 0%, #1c2438 100%)',
+                border: '1px solid #232c44', borderRadius: '14px',
+                overflow: 'hidden', cursor: 'pointer',
+                transition: '0.22s', textDecoration: 'none', color: 'inherit',
+                display: 'flex', flexDirection: 'column',
+              }}
+            >
+              {/* COVER */}
+              <div style={{
+                height: '140px',
+                background: t.banner_url ? `url(${t.banner_url}) center/cover` : 'linear-gradient(135deg, #1a2540, #0e1524)',
+                position: 'relative',
+                display: 'grid', placeItems: 'center',
+              }}>
+                {!t.banner_url && (
+                  <span style={{ fontSize: '44px', opacity: 0.4 }}>
+                    {t.game === 'eFootball' ? '⚽' : '🎮'}
+                  </span>
+                )}
+                <span
+                  className={`pill ${t.status === 'open' ? 'green' : t.status === 'finished' ? 'red' : 'blue'}`}
+                  style={{ position: 'absolute', top: '12px', right: '12px' }}
+                >
+                  {t.status === 'open' ? 'Abierto' : t.status === 'finished' ? 'Finalizado' : 'En curso'}
+                </span>
+              </div>
+
+              {/* BODY */}
+              <div style={{ padding: '18px', display: 'flex', flexDirection: 'column', gap: '12px', flex: 1 }}>
+                <h4 style={{ fontSize: '16px', fontWeight: 700, letterSpacing: '-0.3px' }}>
+                  {t.name}
+                </h4>
+                <div style={{ display: 'flex', gap: '8px', flexWrap: 'wrap' }}>
+                  <span className="pill blue">{t.type === '1v1' ? '1 vs 1' : t.type === 'liga' ? 'Liga' : 'Coop 2v2'}</span>
+                  <span className="pill">{t.platform || '—'}</span>
+                  {t.is_paid ? (
+                    <span className="pill yellow">USD {t.price}</span>
+                  ) : (
+                    <span className="pill green">Gratis</span>
+                  )}
+                </div>
+                <div style={{
+                  display: 'flex', justifyContent: 'space-between',
+                  paddingTop: '12px', borderTop: '1px solid #232c44',
+                  fontSize: '13px', color: '#8a94a8', marginTop: 'auto',
+                }}>
+                  <span>{t.max_participants} cupos</span>
+                  <span>Gestionar →</span>
+                </div>
+              </div>
+            </a>
           ))}
         </div>
       )}
