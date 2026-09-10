@@ -58,11 +58,14 @@ export default function Inscripcion() {
       return;
     }
 
-    // Guardar el token en localStorage para reconocer al jugador
     localStorage.setItem('nexotribu_player_token', data.token);
 
-    // Redirigir a la pantalla de éxito
-    navigate(`/inscripcion-exitosa/${data.token}`);
+    // Si el torneo es pago, va a subir comprobante
+    if (data.is_paid) {
+      navigate(`/subir-comprobante/${data.token}`);
+    } else {
+      navigate(`/inscripcion-exitosa/${data.token}`);
+    }
   }
 
   if (loading) {
@@ -76,9 +79,7 @@ export default function Inscripcion() {
   if (!tournament) {
     return (
       <div className="empty" style={{ marginTop: '80px' }}>
-        <h2 style={{ fontSize: '24px', marginBottom: '8px', color: '#e7ecf5' }}>
-          Torneo no encontrado
-        </h2>
+        <h2 style={{ fontSize: '24px', marginBottom: '8px', color: '#e7ecf5' }}>Torneo no encontrado</h2>
         <Link to="/" className="btn btn-primary">Volver al inicio</Link>
       </div>
     );
@@ -92,9 +93,7 @@ export default function Inscripcion() {
 
       <div className="panel">
         <h2 style={{ marginBottom: '6px' }}>Inscripción</h2>
-        <p className="muted" style={{ fontSize: '14px', marginBottom: '24px' }}>
-          {tournament.name}
-        </p>
+        <p className="muted" style={{ fontSize: '14px', marginBottom: '24px' }}>{tournament.name}</p>
 
         {tournament.is_paid && (
           <div style={{
@@ -103,11 +102,9 @@ export default function Inscripcion() {
             borderRadius: '14px', padding: '16px', marginBottom: '20px',
           }}>
             <div className="muted" style={{ fontSize: '12px', marginBottom: '6px' }}>Aporte de participación</div>
-            <div style={{ fontSize: '24px', fontWeight: 800, color: '#00e0ff' }}>
-              USD {tournament.price}
-            </div>
+            <div style={{ fontSize: '24px', fontWeight: 800, color: '#00e0ff' }}>USD {tournament.price}</div>
             <p className="muted" style={{ fontSize: '12px', marginTop: '6px' }}>
-              Vas a poder elegir el medio de pago en el próximo paso.
+              Vas a subir el comprobante en el próximo paso.
             </p>
           </div>
         )}

@@ -11,6 +11,8 @@ import Torneo from './pages/Torneo';
 import GestionTorneo from './pages/GestionTorneo';
 import Inscripcion from './pages/Inscripcion';
 import InscripcionExitosa from './pages/InscripcionExitosa';
+import SubirComprobante from './pages/SubirComprobante';
+import ValidarPagos from './pages/ValidarPagos';
 import Admin from './pages/Admin';
 import './App.css';
 
@@ -89,6 +91,7 @@ function App() {
               {!loading && user && organizer && (
                 <>
                   {organizer.status === 'approved' && <Link to="/panel">Mi panel</Link>}
+                  {organizer.status === 'approved' && <Link to="/panel/validar">Validar pagos</Link>}
                   <span style={{ color: '#8a94a8', fontSize: '13px' }}>{user.email}</span>
                   <button onClick={handleLogout} style={{ fontSize: '14px', color: '#8a94a8', padding: '8px 14px', borderRadius: '9px' }}>
                     Cerrar sesión
@@ -108,6 +111,7 @@ function App() {
               <Route path="/torneo/:slug" element={<Torneo />} />
               <Route path="/torneo/:slug/inscribirse" element={<Inscripcion />} />
               <Route path="/inscripcion-exitosa/:token" element={<InscripcionExitosa />} />
+              <Route path="/subir-comprobante/:token" element={<SubirComprobante />} />
               <Route path="/login" element={
                 user ? <Navigate to={getRedirectPath()} replace /> : <Login />
               } />
@@ -138,6 +142,12 @@ function App() {
                 !organizer || !organizer.profile_completed ? <Navigate to="/solicitud" replace /> :
                 organizer.status !== 'approved' ? <Navigate to="/esperando" replace /> :
                 <GestionTorneo user={user} />
+              } />
+              <Route path="/panel/validar" element={
+                !user ? <Navigate to="/login" replace /> :
+                !organizer || !organizer.profile_completed ? <Navigate to="/solicitud" replace /> :
+                organizer.status !== 'approved' ? <Navigate to="/esperando" replace /> :
+                <ValidarPagos user={user} />
               } />
               <Route path="/admin" element={
                 !user ? <Navigate to="/login" replace /> : <Admin user={user} />
