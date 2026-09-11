@@ -3,39 +3,30 @@ import { useParams, Link } from 'react-router-dom';
 import { supabase } from '../lib/supabase';
 
 export default function InscripcionExitosa() {
-  const { token } = useParams();
+  const { participantId } = useParams();
   const [participant, setParticipant] = useState(null);
   const [tournament, setTournament] = useState(null);
   const [loading, setLoading] = useState(true);
-  const [copied, setCopied] = useState(false);
+  const [notFound, setNotFound] = useState(false);
 
   useEffect(() => {
     async function load() {
-      const { data: p } = await supabase
-        .from('participants')
-        .select('*')
-        .eq('registration_token', token)
-        .maybeSingle();
+      const { data, error } = await supabase.rpc('get_my_participant_data', {
+        p_participant_id: participantId,
+      });
 
-      if (p) {
-        setParticipant(p);
-        const { data: t } = await supabase
-          .from('tournaments')
-          .select('*')
-          .eq('id', p.tournament_id)
-          .maybeSingle();
-        setTournament(t);
+      if (error || data?.error) {
+        setNotFound(true);
+        setLoading(false);
+        return;
       }
+
+      setParticipant(data.participant);
+      setTournament(data.tournament);
       setLoading(false);
     }
     load();
-  }, [token]);
-
-  function copyLink() {
-    navigator.clipboard.writeText(window.location.href);
-    setCopied(true);
-    setTimeout(() => setCopied(false), 2000);
-  }
+  }, [participantId]);
 
   if (loading) {
     return (
@@ -45,32 +36,43 @@ export default function InscripcionExitosa() {
     );
   }
 
-  if (!participant) {
+  if (notFound || !participant) {
     return (
       <div className="empty" style={{ marginTop: '80px' }}>
-        <h2 style={{ fontSize: '24px', marginBottom: '8px', color: '#e7ecf5' }}>Enlace inválido</h2>
+        <h2 style={{ fontSize: '24px', marginBottom: '8px', color: '#e7ecf5' }}>
+          Inscripción no encontrada
+        </h2>
         <Link to="/" className="btn btn-primary">Volver al inicio</Link>
       </div>
     );
   }
 
-  const isPending = participant.payment_status === 'pending' || participant.payment_status === 'pending_review';
+  const isPending =
+    participant.payment_status === 'pending' ||
+    participant.payment_status === 'pending_review';
 
   return (
     <div style={{ maxWidth: '560px', margin: '40px auto' }}>
       <div className="panel" style={{ textAlign: 'center', padding: '40px 32px' }}>
         <div style={{
-          width: '72px', height: '72px', borderRadius: '50%',
+          width: '72px',
+          height: '72px',
+          borderRadius: '50%',
           background: 'rgba(34, 214, 127, 0.12)',
           border: '1px solid rgba(34, 214, 127, 0.35)',
-          display: 'grid', placeItems: 'center',
-          margin: '0 auto 20px', color: '#22d67f', fontSize: '32px',
+          display: 'grid',
+          placeItems: 'center',
+          margin: '0 auto 20px',
+          color: '#22d67f',
+          fontSize: '32px',
         }}>
           ✓
         </div>
 
         <h2 style={{ fontSize: '24px', marginBottom: '8px' }}>
-          {isPending ? 'Inscripción registrada' : `¡Estás dentro, ${participant.name?.split(' ')[0]}!`}
+          {isPending
+            ? 'Inscripción registrada'
+            : `¡Estás dentro, ${participant.name?.split(' ')[0]}!`}
         </h2>
         <p className="muted" style={{ fontSize: '14px', marginBottom: '24px' }}>
           {isPending
@@ -79,9 +81,12 @@ export default function InscripcionExitosa() {
         </p>
 
         <div style={{
-          textAlign: 'left', background: '#101625',
-          borderRadius: '10px', padding: '14px',
-          marginBottom: '20px', fontSize: '13px',
+          textAlign: 'left',
+          background: '#101625',
+          borderRadius: '10px',
+          padding: '14px',
+          marginBottom: '20px',
+          fontSize: '13px',
         }}>
           <div style={{ display: 'flex', justifyContent: 'space-between', padding: '8px 0', borderBottom: '1px solid #232c44' }}>
             <span className="muted">Email</span>
@@ -99,27 +104,29 @@ export default function InscripcionExitosa() {
           </div>
         </div>
 
-        <p className="muted" style={{ fontSize: '13px', marginBottom: '10px' }}>
-          🔑 Guardá este enlace de acceso. Es tu credencial para ver el torneo.
-        </p>
         <div style={{
-          background: '#101625',
-          border: '1px dashed #232c44',
-          borderRadius: '10px', padding: '12px',
-          fontFamily: 'monospace', fontSize: '11px',
-          wordBreak: 'break-all', color: '#00e0ff',
-          marginBottom: '20px', textAlign: 'left',
+          padding: '12px 14px',
+          background: 'rgba(34, 214, 127, 0.06)',
+          border: '1px solid rgba(34, 214, 127, 0.25)',
+          borderRadius: '10px',
+          fontSize: '12px',
+          marginBottom: '20px',
+          textAlign: 'left',
+          display: 'flex',
+          gap: '10px',
+          alignItems: 'flex-start',
         }}>
-          {window.location.href}
+          <span style={{ color: '#22d67f' }}>✓</span>
+          <span className="muted">
+            <b style={{ color: '#e7ecf5' }}>Tu cuenta está vinculada.</b>{' '}
+            Cuando quieras entrar de nuevo, solo iniciá sesión con Google y vas a ver todos tus torneos.
+          </span>
         </div>
 
         <div style={{ display: 'flex', gap: '10px', justifyContent: 'center', flexWrap: 'wrap' }}>
-          <Link to={`/acceso/${token}`} className="btn btn-primary">
-            Ir a mi panel de jugador →
+          <Link to={`/acceso/${participant.id}`} className="btn btn-primary">
+            Ir a mi panel →
           </Link>
-          <button onClick={copyLink} className="btn btn-ghost">
-            {copied ? '✓ Copiado' : '🔗 Copiar enlace'}
-          </button>
           <Link to={`/torneo/${tournament?.slug}`} className="btn btn-ghost">
             Ir al torneo
           </Link>

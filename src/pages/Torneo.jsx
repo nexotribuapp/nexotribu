@@ -1,56 +1,93 @@
 import { useEffect, useState } from 'react';
-import { useParams, Link } from 'react-router-dom';
+import { useParams, Link, useNavigate } from 'react-router-dom';
 import { supabase } from '../lib/supabase';
+import { getDolarRate, fetchDolarMEP, formatUpdatedAt } from '../lib/dolar';
 
 export default function Torneo() {
   const { slug } = useParams();
+  const navigate = useNavigate();
   const [tournament, setTournament] = useState(null);
   const [organizer, setOrganizer] = useState(null);
   const [participants, setParticipants] = useState([]);
   const [matches, setMatches] = useState([]);
   const [loading, setLoading] = useState(true);
   const [notFound, setNotFound] = useState(false);
+  const [currentUser, setCurrentUser] = useState(null);
+  const [myParticipant, setMyParticipant] = useState(null);
+  const [dolar, setDolar] = useState(getDolarRate());
 
   useEffect(() => {
-    async function load() {
-      setLoading(true);
+    supabase.auth.getSession().then(({ data: { session } }) => {
+      setCurrentUser(session?.user ?? null);
+    });
 
-      const { data: t, error } = await supabase
-        .from('tournaments')
-        .select('*')
-        .eq('slug', slug)
-        .maybeSingle();
+    const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, session) => {
+      setCurrentUser(session?.user ?? null);
+    });
 
-      if (error || !t) {
-        setNotFound(true);
-        setLoading(false);
-        return;
-      }
+    return () => subscription.unsubscribe();
+  }, []);
 
-      setTournament(t);
-
-      const [orgRes, partsRes, matchesRes] = await Promise.all([
-        supabase.from('organizers').select('name, email').eq('id', t.organizer_id).maybeSingle(),
-        supabase
-          .from('participants')
-          .select('id, name, email, payment_status, created_at')
-          .eq('tournament_id', t.id)
-          .in('payment_status', ['paid', 'free'])
-          .order('created_at', { ascending: true }),
-        supabase
-          .from('matches')
-          .select('*')
-          .eq('tournament_id', t.id)
-          .order('created_at', { ascending: true }),
-      ]);
-
-      setOrganizer(orgRes.data);
-      setParticipants(partsRes.data || []);
-      setMatches(matchesRes.data || []);
-      setLoading(false);
-    }
+  useEffect(() => {
     load();
-  }, [slug]);
+    // eslint-disable-next-line
+  }, [slug, currentUser]);
+
+  useEffect(() => {
+    (async () => {
+      const d = await fetchDolarMEP();
+      setDolar(d);
+    })();
+    const interval = setInterval(async () => {
+      const d = await fetchDolarMEP();
+      setDolar(d);
+    }, 30 * 60 * 1000);
+    return () => clearInterval(interval);
+  }, []);
+
+  async function load() {
+    setLoading(true);
+
+    const { data: t, error } = await supabase
+      .from('tournaments')
+      .select('*')
+      .eq('slug', slug)
+      .maybeSingle();
+
+    if (error || !t) {
+      setNotFound(true);
+      setLoading(false);
+      return;
+    }
+
+    setTournament(t);
+
+    const [orgRes, partsRpc, matchesRes] = await Promise.all([
+      supabase.from('organizers').select('name, email').eq('id', t.organizer_id).maybeSingle(),
+      supabase.rpc('get_public_participants', { p_tournament_id: t.id }),
+      supabase.from('matches').select('*').eq('tournament_id', t.id).order('created_at', { ascending: true }),
+    ]);
+
+    setOrganizer(orgRes.data);
+    setParticipants(partsRpc.data || []);
+    setMatches(matchesRes.data || []);
+
+    // Si está logueado, verificar si ya está anotado
+    if (currentUser) {
+      const { data: mine } = await supabase
+        .from('participants')
+        .select('*')
+        .eq('tournament_id', t.id)
+        .eq('user_id', currentUser.id)
+        .neq('payment_status', 'rejected')
+        .maybeSingle();
+      setMyParticipant(mine || null);
+    } else {
+      setMyParticipant(null);
+    }
+
+    setLoading(false);
+  }
 
   if (loading) {
     return (
@@ -63,7 +100,9 @@ export default function Torneo() {
   if (notFound) {
     return (
       <div className="empty" style={{ marginTop: '80px' }}>
-        <h2 style={{ fontSize: '24px', marginBottom: '8px', color: '#e7ecf5' }}>Torneo no encontrado</h2>
+        <h2 style={{ fontSize: '24px', marginBottom: '8px', color: '#e7ecf5' }}>
+          Torneo no encontrado
+        </h2>
         <p style={{ marginBottom: '20px' }}>Este torneo no existe o fue eliminado.</p>
         <Link to="/" className="btn btn-primary">Volver al inicio</Link>
       </div>
@@ -73,6 +112,7 @@ export default function Torneo() {
   const rules = tournament.rules || [];
   const typeLabel = tournament.type === '1v1' ? '1 vs 1' : tournament.type === 'liga' ? 'Liga' : 'Coop 2v2';
   const hasBanner = tournament.banner_url && tournament.banner_url.trim();
+  const isOrganizer = currentUser && tournament.organizer_id === currentUser.id;
 
   const confirmedCount = participants.length;
   const spotsLeft = tournament.max_participants - confirmedCount;
@@ -86,18 +126,28 @@ export default function Torneo() {
   else if (isLow) { cuposLabel = `Últimos ${spotsLeft} cupos`; cuposClass = 'yellow'; }
   else { cuposLabel = `Quedan ${spotsLeft} de ${tournament.max_participants} cupos`; cuposClass = 'green'; }
 
-  // Separar partidos
+  const dist = tournament.prize_distribution || { organizer_pct: 15, first_pct: 50, second_pct: 30, third_pct: 15, fourth_pct: 5 };
+  const totalUSD = tournament.is_paid ? (tournament.price * confirmedCount) : 0;
+  const platformFeeUSD = totalUSD * 0.05;
+  const organizerUSD = totalUSD * (dist.organizer_pct / 100);
+  const poolUSD = totalUSD - platformFeeUSD - organizerUSD;
+  const firstPrize = poolUSD * (dist.first_pct / 100);
+  const secondPrize = poolUSD * (dist.second_pct / 100);
+  const thirdPrize = dist.third_pct ? poolUSD * (dist.third_pct / 100) : 0;
+  const fourthPrize = dist.fourth_pct ? poolUSD * (dist.fourth_pct / 100) : 0;
+
+  const fmt = (n) => new Intl.NumberFormat('es-AR', { maximumFractionDigits: 0 }).format(Math.round(n));
+  const nexoFromUSD = (usd) => Math.round(usd * dolar.rate);
+  const arsFromUSD = (usd) => Math.round(usd * dolar.rate);
+
   const groupMatches = matches.filter((m) => m.stage === 'group');
   const knockoutMatches = matches.filter((m) => m.stage === 'knockout');
-
-  // Agrupar por ronda
   const groupRounds = groupMatches.reduce((acc, m) => {
     const r = m.round || 'Grupo';
     if (!acc[r]) acc[r] = [];
     acc[r].push(m);
     return acc;
   }, {});
-
   const knockoutRounds = knockoutMatches.reduce((acc, m) => {
     const r = m.round || 'Eliminatorias';
     if (!acc[r]) acc[r] = [];
@@ -105,21 +155,18 @@ export default function Torneo() {
     return acc;
   }, {});
 
-  // Cálculo de standings por grupo
   function calcStandings(matchesInGroup) {
     const stats = {};
     matchesInGroup.forEach((m) => {
       if (!stats[m.home]) stats[m.home] = { name: m.home, pj: 0, pts: 0, gf: 0, gc: 0, dg: 0 };
       if (!stats[m.away]) stats[m.away] = { name: m.away, pj: 0, pts: 0, gf: 0, gc: 0, dg: 0 };
       if (m.status !== 'played' || m.home_score === null) return;
-
       stats[m.home].pj++;
       stats[m.away].pj++;
       stats[m.home].gf += m.home_score;
       stats[m.home].gc += m.away_score;
       stats[m.away].gf += m.away_score;
       stats[m.away].gc += m.home_score;
-
       if (m.home_score > m.away_score) stats[m.home].pts += 3;
       else if (m.away_score > m.home_score) stats[m.away].pts += 3;
       else { stats[m.home].pts++; stats[m.away].pts++; }
@@ -127,6 +174,90 @@ export default function Torneo() {
     return Object.values(stats)
       .map((s) => ({ ...s, dg: s.gf - s.gc }))
       .sort((a, b) => b.pts - a.pts || b.dg - a.dg || b.gf - a.gf);
+  }
+
+  function renderActionButton() {
+    // 1. Soy el ORGANIZADOR
+    if (isOrganizer) {
+      return (
+        <div style={{ display: 'grid', gap: '8px' }}>
+          <div style={{
+            padding: '12px 14px',
+            background: 'rgba(123, 92, 255, 0.08)',
+            border: '1px solid rgba(123, 92, 255, 0.3)',
+            borderRadius: '10px',
+            fontSize: '13px',
+            display: 'flex',
+            alignItems: 'center',
+            gap: '10px',
+          }}>
+            <span style={{ color: '#7b5cff', fontSize: '18px' }}>🛡</span>
+            <span>
+              <b style={{ color: '#e7ecf5', display: 'block' }}>Sos el organizador</b>
+              <span className="muted" style={{ fontSize: '11px' }}>Gestioná este torneo</span>
+            </span>
+          </div>
+          <Link to={`/panel/torneo/${tournament.id}`} className="btn btn-primary btn-block">
+            Gestionar torneo →
+          </Link>
+        </div>
+      );
+    }
+
+    // 2. Ya estoy anotado
+    if (myParticipant) {
+      return (
+        <div style={{ display: 'grid', gap: '8px' }}>
+          <div style={{
+            padding: '12px 14px',
+            background: 'rgba(34, 214, 127, 0.08)',
+            border: '1px solid rgba(34, 214, 127, 0.3)',
+            borderRadius: '10px',
+            fontSize: '13px',
+            display: 'flex',
+            alignItems: 'center',
+            gap: '10px',
+          }}>
+            <span style={{ color: '#22d67f', fontSize: '18px' }}>✓</span>
+            <span>
+              <b style={{ color: '#e7ecf5', display: 'block' }}>Ya estás anotado</b>
+              <span className="muted" style={{ fontSize: '11px' }}>Ingresá para ver tus partidos</span>
+            </span>
+          </div>
+          <Link to={`/acceso/${myParticipant.id}`} className="btn btn-primary btn-block">
+            Ir a mi panel →
+          </Link>
+        </div>
+      );
+    }
+
+    // 3. Cerrado
+    if (tournament.status !== 'open') {
+      return (
+        <button className="btn btn-ghost btn-block" disabled>
+          Inscripciones cerradas
+        </button>
+      );
+    }
+
+    // 4. Sin cupos
+    if (isFull) {
+      return (
+        <button className="btn btn-ghost btn-block" disabled>
+          Cupos agotados
+        </button>
+      );
+    }
+
+    // 5. Anotarme
+    return (
+      <Link
+        to={`/torneo/${tournament.slug}/inscribirse`}
+        className="btn btn-primary btn-block"
+      >
+        Anotarme →
+      </Link>
+    );
   }
 
   return (
@@ -137,14 +268,19 @@ export default function Torneo() {
 
       {/* HERO */}
       <div style={{
-        position: 'relative', borderRadius: '18px', overflow: 'hidden',
+        position: 'relative',
+        borderRadius: '18px',
+        overflow: 'hidden',
         background: 'linear-gradient(180deg, #161d2e 0%, #1c2438 100%)',
-        border: '1px solid #232c44', marginBottom: '28px',
+        border: '1px solid #232c44',
+        marginBottom: '28px',
       }}>
         <div style={{
           height: '240px',
           background: hasBanner ? `url(${tournament.banner_url}) center/cover` : 'linear-gradient(135deg, #1a2540, #0e1524)',
-          display: 'grid', placeItems: 'center', position: 'relative',
+          display: 'grid',
+          placeItems: 'center',
+          position: 'relative',
         }}>
           <div style={{ position: 'absolute', inset: 0, background: 'linear-gradient(180deg, rgba(0,0,0,0.2) 0%, rgba(10,14,26,0.95) 100%)' }} />
           {!hasBanner && (
@@ -159,11 +295,11 @@ export default function Torneo() {
             <span className="pill blue">{tournament.game}</span>
             <span className="pill">{typeLabel}</span>
             <span className="pill">{tournament.platform || '—'}</span>
-            {tournament.is_paid ? <span className="pill yellow">Torneo con aporte</span> : <span className="pill green">Gratis</span>}
+            {tournament.is_paid ? <span className="pill yellow">Con aporte</span> : <span className="pill green">Gratis</span>}
             {tournament.status === 'open' && <span className="pill green">Inscripciones abiertas</span>}
             {tournament.status === 'groups' && <span className="pill blue">Fase de grupos</span>}
             {tournament.status === 'in_progress' && <span className="pill blue">En curso</span>}
-            {tournament.status === 'finished' && <span className="pill yellow">Finalizado</span>}
+            {tournament.status === 'finished' && <span className="pill gold">Finalizado</span>}
             {isFull && tournament.status === 'open' && <span className="pill red">Completo</span>}
           </div>
 
@@ -179,7 +315,7 @@ export default function Torneo() {
 
           <div style={{ display: 'flex', gap: '10px', flexWrap: 'wrap' }}>
             <span className="pill">🛡 {organizer?.name || 'Organizador'}</span>
-            <span className="pill">👥 {confirmedCount} / {tournament.max_participants} inscriptos</span>
+            <span className="pill">👥 {confirmedCount} / {tournament.max_participants} anotados</span>
             <span className="pill">🏆 {tournament.prize || 'A definir'}</span>
           </div>
         </div>
@@ -192,39 +328,50 @@ export default function Torneo() {
           background: 'linear-gradient(135deg, rgba(255,209,102,.08), rgba(0,224,255,.04))',
           borderColor: 'rgba(255,209,102,.3)',
         }}>
-          <h3>🏆 Ganadores del torneo</h3>
-          <div style={{ display: 'grid', gap: '10px' }}>
+          <h3 style={{ marginBottom: '16px' }}>🏆 Ganadores del torneo</h3>
+          <div style={{ display: 'grid', gap: '12px' }}>
             {['first', 'second', 'third', 'fourth'].map((slot, i) => {
               const w = tournament.winners[slot];
               if (!w) return null;
-              const pos = ['1er lugar', '2do lugar', '3er lugar', '4to lugar'][i];
+              const posLabel = ['1er lugar', '2do lugar', '3er lugar', '4to lugar'][i];
+              const medalBg = i === 0 ? 'linear-gradient(135deg, #ffd166, #ffb02e)'
+                : i === 1 ? 'linear-gradient(135deg, #e0e0e0, #a8a8a8)'
+                : i === 2 ? 'linear-gradient(135deg, #cd7f32, #8b4513)'
+                : 'linear-gradient(135deg, #6b7a9e, #3f4b6a)';
               return (
                 <div key={slot} style={{
-                  display: 'flex', justifyContent: 'space-between', alignItems: 'center',
-                  padding: '12px 14px',
+                  display: 'flex', alignItems: 'center', gap: '14px',
+                  padding: '14px 16px',
                   background: 'rgba(16, 22, 37, 0.6)',
-                  borderRadius: '10px',
+                  borderRadius: '12px',
                   border: '1px solid #232c44',
+                  flexWrap: 'wrap',
                 }}>
-                  <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
-                    <span style={{
-                      width: '32px', height: '32px', borderRadius: '50%',
-                      background: i === 0 ? 'linear-gradient(135deg, #ffd166, #ffb02e)' : i === 1 ? '#a8a8a8' : i === 2 ? '#cd7f32' : '#6b7a9e',
-                      display: 'grid', placeItems: 'center',
-                      color: '#04121f', fontWeight: 800, fontSize: '14px',
-                    }}>
-                      {i + 1}
-                    </span>
-                    <div>
-                      <b style={{ fontSize: '14px' }}>{w.name}</b>
-                      <div className="muted" style={{ fontSize: '11px' }}>{pos}</div>
-                    </div>
+                  <div style={{
+                    width: '42px', height: '42px', borderRadius: '50%',
+                    background: medalBg,
+                    display: 'grid', placeItems: 'center',
+                    color: '#04121f', fontWeight: 800, fontSize: '15px',
+                    flexShrink: 0,
+                  }}>
+                    {i + 1}
                   </div>
-                  <div style={{ display: 'flex', gap: '8px' }}>
-                    {w.proof_url && (
-                      <a href={w.proof_url} target="_blank" rel="noreferrer" className="btn btn-ghost btn-sm">
+                  <div style={{ flex: 1, minWidth: '140px' }}>
+                    <b style={{ fontSize: '15px', display: 'block', marginBottom: '2px' }}>{w.name}</b>
+                    <span className="muted" style={{ fontSize: '12px' }}>{posLabel}</span>
+                  </div>
+                  <div style={{ display: 'flex', gap: '8px', flexWrap: 'wrap' }}>
+                    {w.proof && (
+                      <button
+                        onClick={() => {
+                          const m = document.createElement('div');
+                          m.innerHTML = `<div style="position:fixed;inset:0;background:rgba(5,8,16,.85);backdrop-filter:blur(6px);display:grid;place-items:center;padding:20px;z-index:200" onclick="this.remove()"><img src="${w.proof}" style="max-width:100%;max-height:90vh;border-radius:12px"></div>`;
+                          document.body.appendChild(m);
+                        }}
+                        className="btn btn-ghost btn-sm"
+                      >
                         📸 Prueba
-                      </a>
+                      </button>
                     )}
                     {w.instagram_url && (
                       <a href={w.instagram_url} target="_blank" rel="noreferrer" className="btn btn-ghost btn-sm">
@@ -249,7 +396,6 @@ export default function Torneo() {
               <p className="muted" style={{ fontSize: '12px', marginBottom: '16px' }}>
                 Los 2 primeros de cada grupo avanzan a la fase eliminatoria.
               </p>
-
               <div style={{ display: 'grid', gap: '20px' }}>
                 {Object.entries(groupRounds).map(([roundName, gMatches]) => {
                   const standings = calcStandings(gMatches);
@@ -377,8 +523,10 @@ export default function Torneo() {
             </div>
 
             <div style={{
-              height: '8px', borderRadius: '4px',
-              background: '#101625', overflow: 'hidden',
+              height: '8px',
+              borderRadius: '4px',
+              background: '#101625',
+              overflow: 'hidden',
               marginBottom: '20px',
             }}>
               <div style={{
@@ -395,7 +543,7 @@ export default function Torneo() {
 
             {participants.length === 0 ? (
               <p className="muted" style={{ fontSize: '14px', textAlign: 'center', padding: '20px 0' }}>
-                Todavía nadie se inscribió. ¡Sé el primero!
+                Todavía nadie se anotó. ¡Sé el primero!
               </p>
             ) : (
               <div style={{
@@ -421,11 +569,11 @@ export default function Torneo() {
                       fontWeight: 800, color: '#04121f', fontSize: '13px',
                       flexShrink: 0,
                     }}>
-                      {(p.name || p.email)[0].toUpperCase()}
+                      {(p.name || '?')[0].toUpperCase()}
                     </div>
                     <div style={{ minWidth: 0, flex: 1 }}>
                       <b style={{ display: 'block', fontSize: '13px', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
-                        {p.name || p.email.split('@')[0]}
+                        {p.name}
                       </b>
                     </div>
                   </div>
@@ -442,11 +590,15 @@ export default function Torneo() {
                 {rules.map((r, i) => <li key={i}>{r}</li>)}
               </ul>
               <div style={{
-                marginTop: '16px', padding: '12px 14px',
+                marginTop: '16px',
+                padding: '12px 14px',
                 background: 'rgba(0, 224, 255, 0.04)',
                 border: '1px solid rgba(0, 224, 255, 0.2)',
-                borderRadius: '10px', fontSize: '13px',
-                display: 'flex', gap: '10px', alignItems: 'flex-start',
+                borderRadius: '10px',
+                fontSize: '13px',
+                display: 'flex',
+                gap: '10px',
+                alignItems: 'flex-start',
               }}>
                 <span style={{ color: '#00e0ff' }}>🔒</span>
                 <span>
@@ -464,12 +616,14 @@ export default function Torneo() {
             <h3>Inscripción</h3>
 
             <div style={{
-              textAlign: 'center', padding: '16px',
+              textAlign: 'center',
+              padding: '16px',
               background: tournament.is_paid
                 ? 'linear-gradient(135deg, rgba(0,224,255,.08), rgba(123,92,255,.06))'
                 : 'rgba(34,214,127,.06)',
               border: tournament.is_paid ? '1px solid rgba(0,224,255,.25)' : '1px solid rgba(34,214,127,.25)',
-              borderRadius: '12px', marginBottom: '16px',
+              borderRadius: '12px',
+              marginBottom: '16px',
             }}>
               <div className="muted" style={{ fontSize: '11px', textTransform: 'uppercase', letterSpacing: '0.6px', marginBottom: '6px' }}>
                 {tournament.is_paid ? 'Aporte de participación' : 'Sin costo'}
@@ -477,6 +631,11 @@ export default function Torneo() {
               <div style={{ fontSize: '26px', fontWeight: 800, color: tournament.is_paid ? '#00e0ff' : '#22d67f' }}>
                 {tournament.is_paid ? `USD ${tournament.price}` : 'Gratis'}
               </div>
+              {tournament.is_paid && (
+                <div className="muted" style={{ fontSize: '12px', marginTop: '6px' }}>
+                  ≈ {fmt(nexoFromUSD(tournament.price))} NC · ${fmt(arsFromUSD(tournament.price))} ARS
+                </div>
+              )}
             </div>
 
             <div style={{ margin: '12px 0' }}>
@@ -497,21 +656,97 @@ export default function Torneo() {
             </div>
 
             <div style={{ marginTop: '20px' }}>
-              {tournament.status !== 'open' ? (
-                <button className="btn btn-ghost btn-block" disabled>
-                  Inscripciones cerradas
-                </button>
-              ) : isFull ? (
-                <button className="btn btn-ghost btn-block" disabled>
-                  Cupos agotados
-                </button>
-              ) : (
-                <Link to={`/torneo/${tournament.slug}/inscribirse`} className="btn btn-primary btn-block">
-                  Inscribirme →
-                </Link>
-              )}
+              {renderActionButton()}
             </div>
+
+            <p className="muted" style={{ fontSize: '11px', marginTop: '12px', textAlign: 'center' }}>
+              Competición de habilidad.
+            </p>
           </div>
+
+          {tournament.is_paid && confirmedCount > 0 && (
+            <div className="panel" style={{ marginTop: '20px' }}>
+              <h3>💰 Desglose del pozo</h3>
+              <div style={{
+                background: 'linear-gradient(180deg, rgba(255,209,102,.06), rgba(255,209,102,.02))',
+                border: '1px solid rgba(255,209,102,.25)',
+                borderRadius: '12px',
+                padding: '16px',
+                marginBottom: '16px',
+                textAlign: 'center',
+              }}>
+                <div style={{ fontSize: '22px', fontWeight: 800, color: '#ffd166' }}>
+                  {fmt(nexoFromUSD(totalUSD))} NC
+                </div>
+                <div className="muted" style={{ fontSize: '11px', marginTop: '4px' }}>
+                  {confirmedCount} anotados × USD {tournament.price}
+                </div>
+              </div>
+              <div style={{ display: 'grid', gap: '6px' }}>
+                <div style={{ display: 'flex', justifyContent: 'space-between', padding: '8px 10px', background: '#101625', borderLeft: '3px solid #7b5cff', borderRadius: '8px', fontSize: '12px' }}>
+                  <span className="muted">Plataforma (5%)</span>
+                  <b>{fmt(nexoFromUSD(platformFeeUSD))} NC</b>
+                </div>
+                <div style={{ display: 'flex', justifyContent: 'space-between', padding: '8px 10px', background: '#101625', borderLeft: '3px solid #00e0ff', borderRadius: '8px', fontSize: '12px' }}>
+                  <span className="muted">Organizador ({dist.organizer_pct}%)</span>
+                  <b>{fmt(nexoFromUSD(organizerUSD))} NC</b>
+                </div>
+                <div style={{ display: 'flex', justifyContent: 'space-between', padding: '8px 10px', background: 'rgba(255,209,102,.08)', borderLeft: '3px solid #ffd166', borderRadius: '8px', fontSize: '12px', fontWeight: 700 }}>
+                  <span>Pozo premios</span>
+                  <b>{fmt(nexoFromUSD(poolUSD))} NC</b>
+                </div>
+              </div>
+              <div style={{ marginTop: '16px', display: 'grid', gap: '6px' }}>
+                {[
+                  { label: '1er lugar', pct: dist.first_pct, prize: firstPrize, medal: '1' },
+                  { label: '2do lugar', pct: dist.second_pct, prize: secondPrize, medal: '2' },
+                  dist.third_pct ? { label: '3er lugar', pct: dist.third_pct, prize: thirdPrize, medal: '3' } : null,
+                  dist.fourth_pct ? { label: '4to lugar', pct: dist.fourth_pct, prize: fourthPrize, medal: '4' } : null,
+                ].filter(Boolean).map((p, i) => (
+                  <div key={i} style={{
+                    display: 'flex', justifyContent: 'space-between',
+                    alignItems: 'center',
+                    padding: '8px 0',
+                    borderBottom: i < 3 ? '1px dashed rgba(35,44,68,.6)' : 'none',
+                    fontSize: '13px',
+                  }}>
+                    <span style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                      <span style={{
+                        width: '20px', height: '20px', borderRadius: '50%',
+                        background: i === 0 ? 'linear-gradient(135deg, #ffd166, #ffb02e)'
+                          : i === 1 ? 'linear-gradient(135deg, #e0e0e0, #a8a8a8)'
+                          : i === 2 ? 'linear-gradient(135deg, #cd7f32, #8b4513)'
+                          : 'linear-gradient(135deg, #6b7a9e, #3f4b6a)',
+                        color: i === 1 ? '#222' : i >= 2 ? '#fff' : '#04121f',
+                        display: 'grid', placeItems: 'center',
+                        fontSize: '10px', fontWeight: 800,
+                      }}>
+                        {p.medal}
+                      </span>
+                      {p.label} ({p.pct}%)
+                    </span>
+                    <div style={{ textAlign: 'right' }}>
+                      <b style={{ color: '#ffd166', display: 'block' }}>{fmt(nexoFromUSD(p.prize))} NC</b>
+                      <span className="muted" style={{ fontSize: '10px' }}>USD {p.prize.toFixed(2)}</span>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
+
+          {tournament.is_paid && (
+            <div className="panel" style={{ marginTop: '20px' }}>
+              <div style={{ fontSize: '11px', color: '#8a94a8', lineHeight: 1.5, display: 'flex', gap: '10px', alignItems: 'flex-start' }}>
+                <span style={{ color: '#00e0ff', fontSize: '14px' }}>💱</span>
+                <span>
+                  <b style={{ color: '#e7ecf5' }}>1 NexoCoin = 1 peso argentino (ARS).</b><br/>
+                  Dólar {dolar.source}: <b style={{ color: '#e7ecf5' }}>${fmt(dolar.rate)} ARS</b><br/>
+                  Actualizado: {formatUpdatedAt(dolar.updated_at)}
+                </span>
+              </div>
+            </div>
+          )}
         </aside>
       </div>
     </div>

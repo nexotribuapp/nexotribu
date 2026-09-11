@@ -1,27 +1,43 @@
 import { useEffect, useState } from 'react';
-import { useParams, Link } from 'react-router-dom';
+import { useParams, useNavigate, Link } from 'react-router-dom';
 import { supabase } from '../lib/supabase';
 
 export default function PlayerPanel() {
-  const { token } = useParams();
+  const { token } = useParams(); // ← ahora es participant_id
+  const navigate = useNavigate();
+  const [user, setUser] = useState(null);
   const [data, setData] = useState(null);
+  const [publicPlayer, setPublicPlayer] = useState(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
 
-  // Modales
   const [reportingMatch, setReportingMatch] = useState(null);
   const [reportForm, setReportForm] = useState({ home_score: '', away_score: '', proof_url: '' });
   const [submitting, setSubmitting] = useState(false);
 
   useEffect(() => {
+    supabase.auth.getSession().then(({ data: { session } }) => {
+      setUser(session?.user ?? null);
+    });
+  }, []);
+
+  useEffect(() => {
+    if (user === null) return; // esperamos a que termine de chequear
     loadPanel();
     // eslint-disable-next-line
-  }, [token]);
+  }, [user, token]);
 
   async function loadPanel() {
     setLoading(true);
-    const { data: res, error: rpcError } = await supabase.rpc('get_player_panel', {
-      p_token: token,
+
+    if (!user) {
+      setError('Necesitás iniciar sesión con Google');
+      setLoading(false);
+      return;
+    }
+
+    const { data: res, error: rpcError } = await supabase.rpc('get_my_participant_data', {
+      p_participant_id: token,
     });
 
     if (rpcError || res?.error) {
@@ -31,6 +47,17 @@ export default function PlayerPanel() {
     }
 
     setData(res);
+
+    // Buscar perfil público
+    if (res.participant?.name) {
+      const { data: playerData } = await supabase
+        .from('players')
+        .select('id, alias, stats')
+        .ilike('alias', res.participant.name)
+        .maybeSingle();
+      setPublicPlayer(playerData);
+    }
+
     setLoading(false);
   }
 
@@ -42,16 +69,19 @@ export default function PlayerPanel() {
     }
 
     setSubmitting(true);
-    const { data: res, error: rpcError } = await supabase.rpc('report_match_result', {
-      p_token: token,
-      p_match_id: reportingMatch.id,
-      p_home_score: parseInt(reportForm.home_score),
-      p_away_score: parseInt(reportForm.away_score),
-      p_proof_url: reportForm.proof_url || null,
-    });
+    const { error: updateError } = await supabase
+      .from('matches')
+      .update({
+        home_score: parseInt(reportForm.home_score),
+        away_score: parseInt(reportForm.away_score),
+        status: 'pending_confirmation',
+        reported_by: data.participant.id,
+        proof_url: reportForm.proof_url || null,
+      })
+      .eq('id', reportingMatch.id);
 
-    if (rpcError || res?.error) {
-      alert('Error: ' + (rpcError?.message || res?.error));
+    if (updateError) {
+      alert('Error: ' + updateError.message);
       setSubmitting(false);
       return;
     }
@@ -65,13 +95,16 @@ export default function PlayerPanel() {
   async function handleConfirm(matchId) {
     if (!confirm('¿Confirmás el resultado reportado por tu rival?')) return;
     setSubmitting(true);
-    const { data: res, error: rpcError } = await supabase.rpc('confirm_match_result', {
-      p_token: token,
-      p_match_id: matchId,
-    });
+    const { error } = await supabase
+      .from('matches')
+      .update({
+        status: 'played',
+        confirmed_by: data.participant.id,
+      })
+      .eq('id', matchId);
 
-    if (rpcError || res?.error) {
-      alert('Error: ' + (rpcError?.message || res?.error));
+    if (error) {
+      alert('Error: ' + error.message);
       setSubmitting(false);
       return;
     }
@@ -85,13 +118,13 @@ export default function PlayerPanel() {
     if (!reason) return;
 
     setSubmitting(true);
-    const { error: updateError } = await supabase
+    const { error } = await supabase
       .from('matches')
       .update({ status: 'disputed', disputed: true, dispute_reason: reason })
       .eq('id', matchId);
 
-    if (updateError) {
-      alert('Error: ' + updateError.message);
+    if (error) {
+      alert('Error: ' + error.message);
       setSubmitting(false);
       return;
     }
@@ -111,7 +144,9 @@ export default function PlayerPanel() {
   if (error) {
     return (
       <div className="empty" style={{ marginTop: '80px' }}>
-        <h2 style={{ fontSize: '24px', marginBottom: '8px', color: '#e7ecf5' }}>Enlace inválido</h2>
+        <h2 style={{ fontSize: '24px', marginBottom: '8px', color: '#e7ecf5' }}>
+          Acceso requerido
+        </h2>
         <p style={{ marginBottom: '20px' }}>{error}</p>
         <Link to="/" className="btn btn-primary">Volver al inicio</Link>
       </div>
@@ -141,43 +176,86 @@ export default function PlayerPanel() {
     participant.payment_status === 'paid' || participant.payment_status === 'free' ? 'green' :
     participant.payment_status === 'pending_review' ? 'yellow' : 'red';
 
+  const isTemporal = participant.account_lifecycle === 'temporal';
+
   return (
     <div style={{ padding: '40px 0' }}>
       <Link to={`/torneo/${tournament.slug}`} className="muted" style={{ fontSize: '13px', display: 'inline-block', marginBottom: '20px' }}>
         ← Volver al torneo
       </Link>
 
+      {isTemporal && (
+        <div style={{
+          padding: '14px 18px',
+          background: 'rgba(255, 176, 46, 0.06)',
+          border: '1px solid rgba(255, 176, 46, 0.3)',
+          borderRadius: '12px',
+          marginBottom: '20px',
+          display: 'flex',
+          gap: '12px',
+          alignItems: 'flex-start',
+          fontSize: '13px',
+        }}>
+          <span style={{ fontSize: '20px' }}>⏱</span>
+          <div>
+            <b style={{ color: '#e7ecf5', display: 'block', marginBottom: '4px' }}>
+              Inscripción temporal al torneo
+            </b>
+            <span className="muted">
+              Al finalizar este torneo, tu inscripción se elimina automáticamente.
+              Tu cuenta y tu <Link to={publicPlayer ? `/jugador/${publicPlayer.id}` : '/ranking'} style={{ color: '#00e0ff' }}>perfil de ranking</Link> se mantienen para siempre.
+            </span>
+          </div>
+        </div>
+      )}
+
       {/* HEADER */}
       <div style={{
-        display: 'flex', alignItems: 'center', gap: '18px',
+        display: 'flex',
+        alignItems: 'center',
+        gap: '18px',
         background: 'linear-gradient(120deg, #161d2e, #1c2438)',
-        border: '1px solid #232c44', borderRadius: '16px',
-        padding: '22px', marginBottom: '24px', flexWrap: 'wrap',
+        border: '1px solid #232c44',
+        borderRadius: '16px',
+        padding: '22px',
+        marginBottom: '24px',
+        flexWrap: 'wrap',
       }}>
         <div style={{
-          width: '64px', height: '64px', borderRadius: '16px',
+          width: '64px',
+          height: '64px',
+          borderRadius: '16px',
           background: 'linear-gradient(135deg, #00e0ff, #7b5cff)',
-          display: 'grid', placeItems: 'center',
-          fontSize: '26px', fontWeight: 800, color: '#04121f',
+          display: 'grid',
+          placeItems: 'center',
+          fontSize: '26px',
+          fontWeight: 800,
+          color: '#04121f',
         }}>
-          {(participant.name || participant.email)[0].toUpperCase()}
+          {(participant.name || user.email)[0].toUpperCase()}
         </div>
         <div style={{ flex: 1, minWidth: '200px' }}>
           <h2 style={{ fontSize: '22px', fontWeight: 800, letterSpacing: '-0.5px', marginBottom: '4px' }}>
-            {participant.name || participant.email.split('@')[0]}
+            {participant.name || user.email.split('@')[0]}
           </h2>
           <p className="muted" style={{ fontSize: '13px' }}>
             {tournament.name} · {tournament.game}
           </p>
         </div>
         <span className={`pill ${statusClass}`}>{statusLabel}</span>
+        {publicPlayer && (
+          <Link to={`/jugador/${publicPlayer.id}`} className="btn btn-ghost btn-sm">
+            🏆 Ver mi perfil
+          </Link>
+        )}
       </div>
 
       {/* STATS */}
       <div style={{
         display: 'grid',
         gridTemplateColumns: 'repeat(auto-fill, minmax(140px, 1fr))',
-        gap: '14px', marginBottom: '28px',
+        gap: '14px',
+        marginBottom: '28px',
       }}>
         <div className="panel" style={{ textAlign: 'center' }}>
           <div style={{ fontSize: '28px', fontWeight: 800 }}>{played.length}</div>
@@ -215,7 +293,6 @@ export default function PlayerPanel() {
               const reportedByMe = m.reported_by === participant.id;
               const canReport = m.status === 'scheduled';
               const canValidate = m.status === 'pending_confirmation' && !reportedByMe;
-              const canDispute = m.status === 'pending_confirmation' && !reportedByMe;
 
               let resultLabel = '';
               let resultClass = 'muted';
@@ -230,21 +307,18 @@ export default function PlayerPanel() {
                 m.status === 'pending_confirmation' ? (
                   reportedByMe
                     ? <span className="pill yellow">Esperando rival</span>
-                    : <span className="pill yellow">Revisar resultado</span>
+                    : <span className="pill yellow">Revisar</span>
                 ) :
                 m.status === 'disputed' ? <span className="pill red">En disputa</span> :
                 <span className="pill">Programado</span>;
 
               return (
-                <div
-                  key={m.id}
-                  style={{
-                    padding: '14px 16px',
-                    background: '#101625',
-                    border: '1px solid #232c44',
-                    borderRadius: '12px',
-                  }}
-                >
+                <div key={m.id} style={{
+                  padding: '14px 16px',
+                  background: '#101625',
+                  border: '1px solid #232c44',
+                  borderRadius: '12px',
+                }}>
                   <div style={{
                     display: 'flex',
                     justifyContent: 'space-between',
@@ -343,44 +417,17 @@ export default function PlayerPanel() {
         )}
       </div>
 
-      {/* ENLACE */}
-      <div className="panel" style={{ marginTop: '20px' }}>
-        <h3>🔑 Mi enlace de acceso</h3>
-        <p className="muted" style={{ fontSize: '13px', marginBottom: '12px' }}>
-          Guardá este enlace. Es tu credencial única.
-        </p>
-        <div style={{
-          background: '#101625',
-          border: '1px dashed #232c44',
-          borderRadius: '10px',
-          padding: '12px',
-          fontFamily: 'monospace',
-          fontSize: '11px',
-          wordBreak: 'break-all',
-          color: '#00e0ff',
-        }}>
-          {window.location.href}
-        </div>
-        <button
-          onClick={() => {
-            navigator.clipboard.writeText(window.location.href);
-            alert('Enlace copiado');
-          }}
-          className="btn btn-ghost btn-sm"
-          style={{ marginTop: '10px' }}
-        >
-          📋 Copiar enlace
-        </button>
-      </div>
-
       {/* MODAL REPORTAR */}
       {reportingMatch && (
         <div style={{
-          position: 'fixed', inset: 0,
+          position: 'fixed',
+          inset: 0,
           background: 'rgba(5, 8, 16, 0.85)',
           backdropFilter: 'blur(6px)',
-          display: 'grid', placeItems: 'center',
-          padding: '20px', zIndex: 100,
+          display: 'grid',
+          placeItems: 'center',
+          padding: '20px',
+          zIndex: 100,
         }}>
           <div style={{
             background: '#1c2438',

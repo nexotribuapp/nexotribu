@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react';
 import { useParams, useNavigate, Link } from 'react-router-dom';
 import { supabase } from '../lib/supabase';
 import { uploadToImgBB } from '../lib/imgbb';
+import { saveToken } from '../lib/playerTokens';
 
 export default function SubirComprobante() {
   const { token } = useParams();
@@ -10,14 +11,16 @@ export default function SubirComprobante() {
   const [tournament, setTournament] = useState(null);
   const [organizer, setOrganizer] = useState(null);
   const [loading, setLoading] = useState(true);
+  const [notFound, setNotFound] = useState(false);
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState(null);
   const [receiptFile, setReceiptFile] = useState(null);
   const [receiptPreview, setReceiptPreview] = useState(null);
 
   const [form, setForm] = useState({
-    whatsapp: '',
     name: '',
+    discord: '',
+    telegram: '',
     tx_id: '',
     notes: '',
     payment_method: '',
@@ -25,36 +28,40 @@ export default function SubirComprobante() {
 
   useEffect(() => {
     async function load() {
-      const { data: p } = await supabase
-        .from('participants')
-        .select('*')
-        .eq('registration_token', token)
-        .maybeSingle();
+      const { data, error: rpcError } = await supabase.rpc('get_participant_by_token', {
+        p_token: token,
+      });
 
-      if (!p) {
+      if (rpcError || data?.error) {
+        setNotFound(true);
         setLoading(false);
         return;
       }
 
-      setParticipant(p);
+      setParticipant(data.participant);
+      setTournament(data.tournament);
+
+      // Guardar token en localStorage para acceso futuro
+      saveToken({
+        token,
+        tournament_slug: data.tournament?.slug,
+        tournament_name: data.tournament?.name,
+        email: data.participant?.email,
+      });
+
       setForm((prev) => ({
         ...prev,
-        whatsapp: p.whatsapp || '',
-        name: p.name || '',
+        name: data.participant.name || '',
+        discord: data.participant.discord || '',
+        telegram: data.participant.telegram || '',
       }));
 
-      const { data: t } = await supabase
-        .from('tournaments')
-        .select('*')
-        .eq('id', p.tournament_id)
-        .maybeSingle();
-      setTournament(t);
-
-      if (t) {
+      // Cargar organizador
+      if (data.tournament?.organizer_id) {
         const { data: o } = await supabase
           .from('organizers')
           .select('*')
-          .eq('id', t.organizer_id)
+          .eq('id', data.tournament.organizer_id)
           .maybeSingle();
         setOrganizer(o);
       }
@@ -99,19 +106,18 @@ export default function SubirComprobante() {
     setSubmitting(true);
 
     try {
-      // Subir imagen a ImgBB
       const receiptUrl = await uploadToImgBB(receiptFile);
 
-      // Actualizar participante
       const { error: updateError } = await supabase
         .from('participants')
         .update({
-          whatsapp: form.whatsapp,
-          name: form.name,
+          name: form.name.trim(),
+          discord: form.discord.trim() || null,
+          telegram: form.telegram.trim() || null,
           payment_method: form.payment_method,
           payment_receipt_url: receiptUrl,
-          payment_tx_id: form.tx_id,
-          payment_notes: form.notes,
+          payment_tx_id: form.tx_id.trim() || null,
+          payment_notes: form.notes.trim() || null,
           payment_status: 'pending_review',
         })
         .eq('id', participant.id);
@@ -134,16 +140,18 @@ export default function SubirComprobante() {
     );
   }
 
-  if (!participant || !tournament) {
+  if (notFound || !participant || !tournament) {
     return (
       <div className="empty" style={{ marginTop: '80px' }}>
-        <h2 style={{ fontSize: '24px', marginBottom: '8px', color: '#e7ecf5' }}>Enlace inválido</h2>
+        <h2 style={{ fontSize: '24px', marginBottom: '8px', color: '#e7ecf5' }}>
+          Enlace inválido
+        </h2>
+        <p style={{ marginBottom: '20px' }}>Este token de acceso no existe o expiró.</p>
         <Link to="/" className="btn btn-primary">Volver al inicio</Link>
       </div>
     );
   }
 
-  // Métodos de pago habilitados por el organizador
   const availableMethods = organizer?.payment_methods || [];
 
   return (
@@ -158,11 +166,13 @@ export default function SubirComprobante() {
           {tournament.name}
         </p>
 
-        {/* INFO DEL PAGO */}
+        {/* APORTE */}
         <div style={{
           background: 'linear-gradient(135deg, rgba(0,224,255,.08), rgba(123,92,255,.06))',
           border: '1px solid rgba(0,224,255,.25)',
-          borderRadius: '14px', padding: '16px', marginBottom: '20px',
+          borderRadius: '14px',
+          padding: '16px',
+          marginBottom: '20px',
         }}>
           <div className="muted" style={{ fontSize: '11px', textTransform: 'uppercase', letterSpacing: '0.6px', marginBottom: '6px' }}>
             Aporte total
@@ -179,13 +189,13 @@ export default function SubirComprobante() {
           {/* MEDIO DE PAGO */}
           <div className="form-group">
             <label>Medio de pago <span className="required">*</span></label>
-            <div style={{ display: 'grid', gap: '10px' }}>
-              {availableMethods.length === 0 ? (
-                <p className="muted" style={{ fontSize: '13px' }}>
-                  El organizador todavía no configuró medios de pago.
-                </p>
-              ) : (
-                availableMethods.map((pm) => (
+            {availableMethods.length === 0 ? (
+              <p className="muted" style={{ fontSize: '13px' }}>
+                El organizador todavía no configuró medios de pago.
+              </p>
+            ) : (
+              <div style={{ display: 'grid', gap: '10px' }}>
+                {availableMethods.map((pm) => (
                   <button
                     key={pm.id}
                     type="button"
@@ -201,36 +211,50 @@ export default function SubirComprobante() {
                       transition: '0.18s',
                     }}
                   >
-                    <b style={{ fontSize: '14px', display: 'block', marginBottom: '4px' }}>{pm.label}</b>
-                    <span className="muted" style={{ fontSize: '12px' }}>{pm.detail}</span>
+                    <b style={{ fontSize: '14px', display: 'block', marginBottom: '4px' }}>
+                      {pm.label}
+                    </b>
+                    <span className="muted" style={{ fontSize: '12px' }}>
+                      {pm.detail}
+                    </span>
                   </button>
-                ))
-              )}
-            </div>
+                ))}
+              </div>
+            )}
           </div>
 
-          {/* DATOS DEL PAGO */}
+          {/* NOMBRE */}
+          <div className="form-group">
+            <label>Nombre completo <span className="required">*</span></label>
+            <input
+              value={form.name}
+              onChange={(e) => update('name', e.target.value)}
+              required
+              placeholder="Como figura en el pago"
+            />
+          </div>
+
+          {/* DISCORD + TELEGRAM */}
           <div className="form-row">
             <div className="form-group">
-              <label>WhatsApp <span className="required">*</span></label>
+              <label>Discord</label>
               <input
-                value={form.whatsapp}
-                onChange={(e) => update('whatsapp', e.target.value)}
-                required
-                placeholder="+54 9 11 ..."
+                value={form.discord}
+                onChange={(e) => update('discord', e.target.value)}
+                placeholder="usuario#1234"
               />
             </div>
             <div className="form-group">
-              <label>Nombre completo <span className="required">*</span></label>
+              <label>Telegram</label>
               <input
-                value={form.name}
-                onChange={(e) => update('name', e.target.value)}
-                required
-                placeholder="Como figura en el pago"
+                value={form.telegram}
+                onChange={(e) => update('telegram', e.target.value)}
+                placeholder="@usuario"
               />
             </div>
           </div>
 
+          {/* ID + MONTO */}
           <div className="form-row">
             <div className="form-group">
               <label>ID / Nro de operación</label>
@@ -245,7 +269,7 @@ export default function SubirComprobante() {
               <input
                 value={`USD ${tournament.price}`}
                 readOnly
-                style={{ background: '#0a0e1a', color: '#8a94a8' }}
+                style={{ background: '#0a0e1a', color: '#8a94a8', cursor: 'not-allowed' }}
               />
             </div>
           </div>
@@ -286,7 +310,9 @@ export default function SubirComprobante() {
               ) : (
                 <div style={{ color: '#8a94a8' }}>
                   <div style={{ fontSize: '32px', marginBottom: '8px' }}>📸</div>
-                  <b style={{ color: '#e7ecf5', display: 'block', marginBottom: '4px' }}>Subir captura</b>
+                  <b style={{ color: '#e7ecf5', display: 'block', marginBottom: '4px' }}>
+                    Subir captura
+                  </b>
                   <small>JPG, PNG · máx 5 MB</small>
                 </div>
               )}
@@ -317,17 +343,40 @@ export default function SubirComprobante() {
             />
           </div>
 
+          {/* INFO BOX */}
+          <div style={{
+            padding: '12px 14px',
+            background: '#101625',
+            border: '1px solid #232c44',
+            borderRadius: '10px',
+            fontSize: '12px',
+            display: 'flex',
+            gap: '10px',
+            alignItems: 'flex-start',
+            marginBottom: '16px',
+          }}>
+            <span style={{ color: '#00e0ff' }}>🔒</span>
+            <span className="muted">
+              Tu comprobante será verificado por el organizador. Una vez aprobado, tu inscripción queda confirmada.
+            </span>
+          </div>
+
+          {/* ERROR */}
           {error && (
             <div style={{
               background: 'rgba(255,61,113,.08)',
               border: '1px solid rgba(255,61,113,.35)',
-              borderRadius: '10px', padding: '12px 14px',
-              fontSize: '13px', color: '#ff3d71', marginBottom: '16px',
+              borderRadius: '10px',
+              padding: '12px 14px',
+              fontSize: '13px',
+              color: '#ff3d71',
+              marginBottom: '16px',
             }}>
               {error}
             </div>
           )}
 
+          {/* BOTONES */}
           <div style={{ display: 'flex', gap: '10px', marginTop: '24px', flexWrap: 'wrap' }}>
             <button
               type="submit"
@@ -337,7 +386,9 @@ export default function SubirComprobante() {
             >
               {submitting ? 'Enviando comprobante...' : 'Enviar comprobante'}
             </button>
-            <Link to={`/torneo/${tournament.slug}`} className="btn btn-ghost">Cancelar</Link>
+            <Link to={`/torneo/${tournament.slug}`} className="btn btn-ghost">
+              Cancelar
+            </Link>
           </div>
         </form>
       </div>
