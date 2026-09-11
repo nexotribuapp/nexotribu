@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react';
 import { useParams, useNavigate, Link } from 'react-router-dom';
 import { supabase } from '../lib/supabase';
+import { getGameConfig } from '../lib/config';
 
 export default function Inscripcion() {
   const { slug } = useParams();
@@ -12,7 +13,8 @@ export default function Inscripcion() {
   const [form, setForm] = useState({
     email: '',
     name: '',
-    whatsapp: '',
+    discord: '',
+    telegram: '',
     game_id: '',
   });
 
@@ -42,7 +44,7 @@ export default function Inscripcion() {
       p_tournament_id: tournament.id,
       p_email: form.email.trim(),
       p_name: form.name.trim(),
-      p_whatsapp: form.whatsapp.trim() || null,
+      p_whatsapp: null,                       // ya no se pide
       p_game_id: form.game_id.trim() || null,
     });
 
@@ -58,9 +60,19 @@ export default function Inscripcion() {
       return;
     }
 
+    // Guardar discord/telegram después (van en un update)
+    if (form.discord || form.telegram) {
+      await supabase
+        .from('participants')
+        .update({
+          discord: form.discord.trim() || null,
+          telegram: form.telegram.trim() || null,
+        })
+        .eq('registration_token', data.token);
+    }
+
     localStorage.setItem('nexotribu_player_token', data.token);
 
-    // Si el torneo es pago, va a subir comprobante
     if (data.is_paid) {
       navigate(`/subir-comprobante/${data.token}`);
     } else {
@@ -79,13 +91,13 @@ export default function Inscripcion() {
   if (!tournament) {
     return (
       <div className="empty" style={{ marginTop: '80px' }}>
-        <h2 style={{ fontSize: '24px', marginBottom: '8px', color: '#e7ecf5' }}>
-          Torneo no encontrado
-        </h2>
+        <h2 style={{ fontSize: '24px', marginBottom: '8px', color: '#e7ecf5' }}>Torneo no encontrado</h2>
         <Link to="/" className="btn btn-primary">Volver al inicio</Link>
       </div>
     );
   }
+
+  const gameConfig = getGameConfig(tournament.game);
 
   return (
     <div style={{ maxWidth: '560px', margin: '40px auto' }}>
@@ -95,7 +107,9 @@ export default function Inscripcion() {
 
       <div className="panel">
         <h2 style={{ marginBottom: '6px' }}>Inscripción</h2>
-        <p className="muted" style={{ fontSize: '14px', marginBottom: '24px' }}>{tournament.name}</p>
+        <p className="muted" style={{ fontSize: '14px', marginBottom: '24px' }}>
+          {tournament.name} · {tournament.game}
+        </p>
 
         {tournament.is_paid && (
           <div style={{
@@ -134,27 +148,45 @@ export default function Inscripcion() {
             />
           </div>
 
+          {/* ID DE JUEGO DINÁMICO */}
+          <div className="form-group">
+            <label>
+              {gameConfig.game_id_label}{' '}
+              <span style={{ color: '#8a94a8', fontWeight: 500 }}>({tournament.game})</span>
+            </label>
+            <input
+              value={form.game_id}
+              onChange={(e) => update('game_id', e.target.value)}
+              placeholder={gameConfig.game_id_placeholder}
+            />
+            <small>{gameConfig.game_id_help}</small>
+          </div>
+
+          {/* DISCORD + TELEGRAM */}
           <div className="form-row">
             <div className="form-group">
-              <label>WhatsApp</label>
+              <label>Discord</label>
               <input
-                value={form.whatsapp}
-                onChange={(e) => update('whatsapp', e.target.value)}
-                placeholder="+54 9 11 ..."
+                value={form.discord}
+                onChange={(e) => update('discord', e.target.value)}
+                placeholder="usuario#1234 o @usuario"
               />
             </div>
             <div className="form-group">
-              <label>ID de juego</label>
+              <label>Telegram</label>
               <input
-                value={form.game_id}
-                onChange={(e) => update('game_id', e.target.value)}
-                placeholder="PSN / Xbox"
+                value={form.telegram}
+                onChange={(e) => update('telegram', e.target.value)}
+                placeholder="@usuario"
               />
             </div>
           </div>
+          <small style={{ color: '#8a94a8', fontSize: '12px', marginTop: '-8px', display: 'block', marginBottom: '16px' }}>
+            Opcionales, pero recomendados. Es donde se coordina el torneo.
+          </small>
 
           <div style={{
-            marginTop: '16px', padding: '12px 14px',
+            marginTop: '8px', padding: '12px 14px',
             background: '#101625', border: '1px solid #232c44',
             borderRadius: '10px', fontSize: '12px',
             display: 'flex', gap: '10px', alignItems: 'flex-start',
@@ -177,12 +209,7 @@ export default function Inscripcion() {
           )}
 
           <div style={{ display: 'flex', gap: '10px', marginTop: '24px', flexWrap: 'wrap' }}>
-            <button
-              type="submit"
-              className="btn btn-primary"
-              disabled={submitting}
-              style={{ flex: 1 }}
-            >
+            <button type="submit" className="btn btn-primary" disabled={submitting} style={{ flex: 1 }}>
               {submitting ? 'Inscribiendo...' : (tournament.is_paid ? 'Continuar al pago' : 'Confirmar inscripción')}
             </button>
             <Link to={`/torneo/${slug}`} className="btn btn-ghost">Cancelar</Link>

@@ -6,9 +6,9 @@ export default function Solicitud({ user, organizer, onComplete }) {
   const [error, setError] = useState(null);
   const [form, setForm] = useState({
     name: organizer?.name || '',
-    whatsapp: '',
     instagram: '',
     discord: '',
+    telegram: '',
     experience_years: '',
     community_size: '',
     motivation: '',
@@ -23,16 +23,22 @@ export default function Solicitud({ user, organizer, onComplete }) {
     setLoading(true);
     setError(null);
 
+    if (!form.discord.trim() && !form.telegram.trim()) {
+      setError('Necesitamos al menos un medio de contacto: Discord o Telegram');
+      setLoading(false);
+      return;
+    }
+
     const { data, error: updateError } = await supabase
       .from('organizers')
       .update({
         name: form.name,
-        whatsapp: form.whatsapp,
-        instagram: form.instagram,
-        discord: form.discord,
+        instagram: form.instagram.trim() || null,
+        discord: form.discord.trim() || null,
+        telegram: form.telegram.trim() || null,
         experience_years: parseInt(form.experience_years) || null,
         community_size: parseInt(form.community_size) || null,
-        motivation: form.motivation,
+        motivation: form.motivation.trim(),
         profile_completed: true,
       })
       .eq('id', user.id)
@@ -40,7 +46,7 @@ export default function Solicitud({ user, organizer, onComplete }) {
       .single();
 
     if (updateError) {
-      console.error('Error:', updateError);
+      console.error(updateError);
       setError('Hubo un problema al enviar la solicitud. Intentá de nuevo.');
       setLoading(false);
       return;
@@ -54,7 +60,7 @@ export default function Solicitud({ user, organizer, onComplete }) {
   return (
     <div style={{ maxWidth: '640px', margin: '40px auto' }}>
       <div className="panel">
-        <h2>Querés ser organizador en NexoTribu</h2>
+        <h2 style={{ marginBottom: '6px' }}>Querés ser organizador en NexoTribu</h2>
         <p className="muted" style={{ marginBottom: '24px', fontSize: '14px' }}>
           Contanos un poco sobre vos. Revisamos cada solicitud personalmente y te
           contactamos en las próximas 24-48 horas.
@@ -71,35 +77,36 @@ export default function Solicitud({ user, organizer, onComplete }) {
             />
           </div>
 
-          <div className="form-row">
-            <div className="form-group">
-              <label>WhatsApp <span className="required">*</span></label>
-              <input
-                value={form.whatsapp}
-                onChange={(e) => update('whatsapp', e.target.value)}
-                required
-                placeholder="+54 9 11 1234 5678"
-              />
-            </div>
-            <div className="form-group">
-              <label>Instagram</label>
-              <input
-                value={form.instagram}
-                onChange={(e) => update('instagram', e.target.value)}
-                placeholder="@tucuenta"
-              />
-            </div>
+          <div className="form-group">
+            <label>Instagram</label>
+            <input
+              value={form.instagram}
+              onChange={(e) => update('instagram', e.target.value)}
+              placeholder="@tucuenta"
+            />
           </div>
 
-          <div className="form-group">
-            <label>Usuario de Discord</label>
-            <input
-              value={form.discord}
-              onChange={(e) => update('discord', e.target.value)}
-              placeholder="usuario#1234 o @usuario"
-            />
-            <small>Opcional pero recomendado. Es donde suele coordinarse todo.</small>
+          <div className="form-row">
+            <div className="form-group">
+              <label>Discord</label>
+              <input
+                value={form.discord}
+                onChange={(e) => update('discord', e.target.value)}
+                placeholder="usuario#1234 o @usuario"
+              />
+            </div>
+            <div className="form-group">
+              <label>Telegram</label>
+              <input
+                value={form.telegram}
+                onChange={(e) => update('telegram', e.target.value)}
+                placeholder="@usuario"
+              />
+            </div>
           </div>
+          <small style={{ color: '#8a94a8', fontSize: '12px', marginTop: '-8px', display: 'block', marginBottom: '16px' }}>
+            Uno de los dos es obligatorio. Es por donde te vamos a contactar.
+          </small>
 
           <div className="form-row">
             <div className="form-group">
@@ -141,14 +148,20 @@ export default function Solicitud({ user, organizer, onComplete }) {
           </div>
 
           {error && (
-            <p style={{ color: '#ff3d71', fontSize: '13px', marginBottom: '16px' }}>{error}</p>
+            <div style={{
+              background: 'rgba(255,61,113,.08)',
+              border: '1px solid rgba(255,61,113,.35)',
+              borderRadius: '10px',
+              padding: '12px 14px',
+              fontSize: '13px',
+              color: '#ff3d71',
+              marginBottom: '16px',
+            }}>
+              {error}
+            </div>
           )}
 
-          <button
-            type="submit"
-            className="btn btn-primary btn-block"
-            disabled={loading}
-          >
+          <button type="submit" className="btn btn-primary btn-block" disabled={loading}>
             {loading ? 'Enviando solicitud...' : 'Enviar solicitud'}
           </button>
         </form>

@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react';
 import { BrowserRouter, Routes, Route, Link, Navigate } from 'react-router-dom';
 import { supabase } from './lib/supabase';
+import { BRAND } from './lib/config';
 import Home from './pages/Home';
 import Login from './pages/Login';
 import Solicitud from './pages/Solicitud';
@@ -84,10 +85,11 @@ function App() {
           <div className="container nav-inner">
             <Link to="/" className="logo">
               <span className="dot">N</span>
-              NexoTribu
+              {BRAND.name}
             </Link>
             <nav className="nav-links">
               <Link to="/">Torneos</Link>
+              <a href={BRAND.discord_url} target="_blank" rel="noreferrer">Discord</a>
               {!loading && !user && <Link to="/login">Acceso organizadores</Link>}
               {!loading && user && organizer && (
                 <>
@@ -102,6 +104,38 @@ function App() {
             </nav>
           </div>
         </header>
+
+        {/* BANNER DE DISCORD */}
+        <div className="container" style={{ paddingTop: '16px' }}>
+          <div style={{
+            padding: '12px 18px',
+            background: 'linear-gradient(135deg, rgba(88,101,242,.12), rgba(88,101,242,.04))',
+            border: '1px solid rgba(88,101,242,.3)',
+            borderRadius: '12px',
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'space-between',
+            gap: '12px',
+            flexWrap: 'wrap',
+            fontSize: '13px',
+          }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+              <span style={{ fontSize: '20px' }}>💬</span>
+              <span>
+                <b style={{ color: '#e7ecf5' }}>Sumate a nuestro Discord oficial</b>
+                <span className="muted" style={{ marginLeft: '8px' }}>Soporte, torneos y comunidad</span>
+              </span>
+            </div>
+            <div style={{ display: 'flex', gap: '8px', flexWrap: 'wrap' }}>
+              <a href={BRAND.discord_url} target="_blank" rel="noreferrer" className="btn btn-primary btn-sm" style={{ background: '#5865F2', color: '#fff' }}>
+                Unirse a Discord
+              </a>
+              <a href={BRAND.telegram_url} target="_blank" rel="noreferrer" className="btn btn-ghost btn-sm">
+                Telegram
+              </a>
+            </div>
+          </div>
+        </div>
 
         <main className="container">
           {loading ? (
@@ -160,7 +194,7 @@ function App() {
 
         <footer className="footer">
           <div className="container">
-            <p>&copy; {new Date().getFullYear()} NexoTribu &middot; Competiciones de habilidad &middot; No es juego de azar</p>
+            <p>&copy; {new Date().getFullYear()} {BRAND.name} &middot; Competiciones de habilidad &middot; No es juego de azar</p>
           </div>
         </footer>
       </div>
